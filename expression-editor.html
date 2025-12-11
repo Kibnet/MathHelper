@@ -64,6 +64,104 @@
       margin-bottom: 20px;
     }
 
+    /* Commands Panel */
+    .commands-panel {
+      position: fixed;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 320px;
+      max-height: 80vh;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      overflow-y: auto;
+      box-shadow: var(--shadow-soft);
+      z-index: 100;
+    }
+
+    .commands-panel-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .commands-panel-selection {
+      font-family: 'Courier New', monospace;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 15px;
+      color: var(--accent);
+      font-size: 0.9rem;
+      word-break: break-all;
+    }
+
+    .commands-panel-placeholder {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      font-style: italic;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .command-category {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      padding: 8px 0 4px;
+      margin-top: 12px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .command-category:first-child {
+      margin-top: 0;
+      border-top: none;
+    }
+
+    .command-item {
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 6px;
+      border: 1px solid transparent;
+      background: rgba(148, 163, 184, 0.05);
+    }
+
+    .command-item:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      transform: translateX(4px);
+    }
+
+    .command-item-name {
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.95rem;
+    }
+
+    .command-item-preview {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-family: 'Courier New', monospace;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      margin-left: 360px; /* Make room for commands panel */
+    }
+
     .input-row {
       display: flex;
       gap: 10px;
@@ -182,6 +280,38 @@
       min-height: 300px;
     }
 
+    .expression-text {
+      font-family: 'Courier New', monospace;
+      font-size: 1.3rem;
+      padding: 15px;
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 8px;
+      margin-bottom: 20px;
+      user-select: text;
+      cursor: text;
+      position: relative;
+      border: 2px solid var(--border-subtle);
+      transition: border-color 0.2s;
+    }
+
+    .expression-text:hover {
+      border-color: var(--accent);
+    }
+
+    .expression-text::selection {
+      background: var(--accent-soft);
+      color: var(--text-primary);
+    }
+
+    .selection-highlight {
+      position: absolute;
+      background: var(--accent-soft);
+      border: 2px solid var(--accent);
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
     .expression-block {
       display: inline-block;
       padding: 8px 12px;
@@ -240,63 +370,9 @@
       align-items: center;
     }
 
-    /* Context Menu */
+    /* Context Menu - Hidden, replaced by commands panel */
     .context-menu {
-      position: fixed;
-      background: var(--bg-card);
-      border: 1px solid var(--accent);
-      border-radius: 12px;
-      padding: 8px;
-      min-width: 280px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-      z-index: 1000;
-      display: none;
-    }
-
-    .context-menu.visible {
-      display: block;
-    }
-
-    .menu-item {
-      padding: 10px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.15s;
-      margin-bottom: 4px;
-      border: 1px solid transparent;
-    }
-
-    .menu-item:hover {
-      background: var(--accent-soft);
-      border-color: var(--accent);
-    }
-
-    .menu-item-title {
-      font-weight: 600;
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .menu-item-preview {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      font-family: 'Courier New', monospace;
-    }
-
-    .menu-separator {
-      height: 1px;
-      background: var(--border-subtle);
-      margin: 8px 0;
-    }
-
-    .menu-category {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      padding: 4px 8px;
-      margin-top: 8px;
+      display: none !important;
     }
 
     /* History Panel */
@@ -412,10 +488,36 @@
       .main-layout {
         grid-template-columns: 1fr;
       }
+      
+      .commands-panel {
+        position: relative;
+        left: auto;
+        top: auto;
+        transform: none;
+        width: 100%;
+        max-height: none;
+        margin-bottom: 20px;
+      }
+      
+      .container {
+        margin-left: auto;
+      }
     }
   </style>
 </head>
 <body>
+  <!-- Commands Panel (Left Side) -->
+  <div id="commandsPanel" class="commands-panel">
+    <div class="commands-panel-title">
+      <span class="panel-badge"><span class="badge-dot"></span>Commands</span>
+    </div>
+    <div id="commandsPanelContent">
+      <div class="commands-panel-placeholder">
+        Select any part of the expression to see available transformations
+      </div>
+    </div>
+  </div>
+
   <div class="container">
     <h1>Logical Expression Editor</h1>
     <p class="subtitle">Transform mathematical expressions using algebraic rules with visual feedback and branching history</p>
@@ -450,7 +552,11 @@
           Visual Representation
         </div>
         <div id="expressionDisplay" class="expression-display">
-          <p class="placeholder">Enter an expression and click "Build Expression" to visualize it as nested blocks. Click any block to see available transformations.</p>
+          <p class="placeholder">Enter an expression and click "Build Expression" to visualize it.<br><br>
+          <strong>How to use:</strong><br>
+          • <strong>Select text</strong> in the expression view to see commands in the left panel<br>
+          • <strong>Click blocks</strong> below to see commands for tree nodes<br>
+          • Available transformations appear in the Commands panel on the left</p>
         </div>
       </div>
 
@@ -668,8 +774,146 @@
     // Expression Renderer
     function renderExpression(node, container) {
       container.innerHTML = '';
+      
+      // Add text-based expression with selection support
+      const textDiv = document.createElement('div');
+      textDiv.className = 'expression-text';
+      textDiv.id = 'expressionText';
+      const exprString = expressionToString(node);
+      textDiv.textContent = exprString;
+      textDiv.dataset.expression = exprString;
+      
+      // Add mouseup event for text selection
+      textDiv.addEventListener('mouseup', handleTextSelection);
+      textDiv.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        handleTextSelection(e);
+      });
+      
+      container.appendChild(textDiv);
+      
+      // Add tree-based blocks below
       const element = createExpressionElement(node);
       container.appendChild(element);
+    }
+
+    // Handle text selection and show context menu for subexpressions
+    function handleTextSelection(event) {
+      const selection = window.getSelection();
+      const selectedText = selection.toString().trim();
+      
+      console.log('Selected text:', selectedText);
+      
+      if (!selectedText) {
+        // Clear commands panel when nothing is selected
+        updateCommandsPanel(null, null);
+        return;
+      }
+      
+      // Try to parse the selected text as a valid expression
+      try {
+        const parser = new ExpressionParser(selectedText);
+        const subNode = parser.parse();
+        
+        console.log('Parsed subexpression:', subNode);
+        
+        // Update commands panel for this subexpression
+        updateCommandsPanel(subNode, selectedText);
+      } catch (e) {
+        console.log('Selected text is not a valid expression:', selectedText, e.message);
+        // Show error in commands panel
+        updateCommandsPanel(null, selectedText, 'Invalid expression: ' + e.message);
+      }
+    }
+
+    // Update commands panel with available transformations
+    function updateCommandsPanel(node, selectedText, errorMessage = null) {
+      const panel = document.getElementById('commandsPanelContent');
+      panel.innerHTML = '';
+      
+      if (errorMessage) {
+        // Show error message
+        const selection = document.createElement('div');
+        selection.className = 'commands-panel-selection';
+        selection.textContent = selectedText;
+        panel.appendChild(selection);
+        
+        const error = document.createElement('div');
+        error.style.color = 'var(--danger)';
+        error.style.padding = '20px';
+        error.style.textAlign = 'center';
+        error.textContent = errorMessage;
+        panel.appendChild(error);
+        return;
+      }
+      
+      if (!node || !selectedText) {
+        // Show placeholder
+        const placeholder = document.createElement('div');
+        placeholder.className = 'commands-panel-placeholder';
+        placeholder.textContent = 'Select any part of the expression to see available transformations';
+        panel.appendChild(placeholder);
+        return;
+      }
+      
+      // Show selected text
+      const selection = document.createElement('div');
+      selection.className = 'commands-panel-selection';
+      selection.textContent = selectedText;
+      panel.appendChild(selection);
+      
+      // Get and display available transformations
+      const rules = getApplicableRules(node);
+      
+      if (rules.length === 0) {
+        const noRules = document.createElement('div');
+        noRules.className = 'commands-panel-placeholder';
+        noRules.textContent = 'No transformations available for this expression';
+        panel.appendChild(noRules);
+        return;
+      }
+      
+      // Group rules by category
+      let currentCategory = null;
+      rules.forEach(rule => {
+        if (rule.category !== currentCategory) {
+          const categoryDiv = document.createElement('div');
+          categoryDiv.className = 'command-category';
+          categoryDiv.textContent = rule.category;
+          panel.appendChild(categoryDiv);
+          currentCategory = rule.category;
+        }
+        
+        const item = document.createElement('div');
+        item.className = 'command-item';
+        
+        const name = document.createElement('div');
+        name.className = 'command-item-name';
+        name.textContent = rule.name;
+        
+        const preview = document.createElement('div');
+        preview.className = 'command-item-preview';
+        preview.textContent = rule.preview;
+        
+        item.appendChild(name);
+        item.appendChild(preview);
+        
+        item.addEventListener('click', () => {
+          // Check if this is a tree node (has id) or a text selection
+          if (node.id && findNodeById(currentExpression, node.id)) {
+            // This is a tree node - use normal transformation
+            applyTransformation(node, rule);
+          } else {
+            // This is a text selection - use subexpression transformation
+            applyTransformationToSubexpression(node, rule, selectedText);
+          }
+          // Clear selection after applying
+          window.getSelection().removeAllRanges();
+          updateCommandsPanel(null, null);
+        });
+        
+        panel.appendChild(item);
+      });
     }
 
     function createExpressionElement(node) {
@@ -729,59 +973,85 @@
       
       div.addEventListener('click', (e) => {
         e.stopPropagation();
-        showContextMenu(e, node);
+        // Update commands panel instead of showing context menu
+        const nodeString = expressionToString(node);
+        updateCommandsPanel(node, nodeString);
       });
       
       return div;
     }
 
     // Context Menu
-    function showContextMenu(event, node) {
+    function showContextMenu(event, node, selectedText = null) {
+      event.preventDefault();
+      event.stopPropagation();
+      
       const menu = document.getElementById('contextMenu');
       const rules = getApplicableRules(node);
       
-      if (rules.length === 0) {
-        return;
-      }
+      console.log('showContextMenu called, rules count:', rules.length);
       
       menu.innerHTML = '';
       
-      let currentCategory = null;
-      rules.forEach(rule => {
-        if (rule.category !== currentCategory) {
-          if (currentCategory !== null) {
-            const separator = document.createElement('div');
-            separator.className = 'menu-separator';
-            menu.appendChild(separator);
+      // If this is a subexpression selection, add a header
+      if (selectedText) {
+        const header = document.createElement('div');
+        header.className = 'menu-category';
+        header.textContent = `Selected: ${selectedText}`;
+        header.style.color = 'var(--accent)';
+        header.style.fontSize = '0.9rem';
+        header.style.marginBottom = '8px';
+        menu.appendChild(header);
+      }
+      
+      if (rules.length === 0) {
+        const noRules = document.createElement('div');
+        noRules.className = 'menu-item';
+        noRules.style.color = 'var(--text-muted)';
+        noRules.textContent = 'No transformations available for this expression';
+        menu.appendChild(noRules);
+      } else {
+        let currentCategory = null;
+        rules.forEach(rule => {
+          if (rule.category !== currentCategory) {
+            if (currentCategory !== null) {
+              const separator = document.createElement('div');
+              separator.className = 'menu-separator';
+              menu.appendChild(separator);
+            }
+            const categoryLabel = document.createElement('div');
+            categoryLabel.className = 'menu-category';
+            categoryLabel.textContent = rule.category;
+            menu.appendChild(categoryLabel);
+            currentCategory = rule.category;
           }
-          const categoryLabel = document.createElement('div');
-          categoryLabel.className = 'menu-category';
-          categoryLabel.textContent = rule.category;
-          menu.appendChild(categoryLabel);
-          currentCategory = rule.category;
-        }
-        
-        const item = document.createElement('div');
-        item.className = 'menu-item';
-        
-        const title = document.createElement('div');
-        title.className = 'menu-item-title';
-        title.textContent = rule.name;
-        
-        const preview = document.createElement('div');
-        preview.className = 'menu-item-preview';
-        preview.textContent = rule.preview;
-        
-        item.appendChild(title);
-        item.appendChild(preview);
-        
-        item.addEventListener('click', () => {
-          applyTransformation(node, rule);
-          hideContextMenu();
+          
+          const item = document.createElement('div');
+          item.className = 'menu-item';
+          
+          const title = document.createElement('div');
+          title.className = 'menu-item-title';
+          title.textContent = rule.name;
+          
+          const preview = document.createElement('div');
+          preview.className = 'menu-item-preview';
+          preview.textContent = rule.preview;
+          
+          item.appendChild(title);
+          item.appendChild(preview);
+          
+          item.addEventListener('click', () => {
+            if (selectedText) {
+              applyTransformationToSubexpression(node, rule, selectedText);
+            } else {
+              applyTransformation(node, rule);
+            }
+            hideContextMenu();
+          });
+          
+          menu.appendChild(item);
         });
-        
-        menu.appendChild(item);
-      });
+      }
       
       // Position menu and ensure it stays within viewport
       menu.classList.add('visible');
@@ -897,95 +1167,164 @@
         children: node.children ? node.children.map(c => ({ type: c.type, value: c.value })) : []
       });
       
-      // === REVERSE OPERATIONS (Add wrapping transformations) ===
+      // === PRIORITY 1: COMPUTATION (Evaluate constants) ===
       
-      // Add parentheses (always available)
-      if (node.type !== 'group') {
-        rules.push({
-          id: 'add_parens',
-          name: '← Add Parentheses',
-          category: 'Wrapping',
-          preview: 'a → (a)',
-          apply: addParentheses
-        });
-      }
-      
-      // Add double negation (always available)
-      if (node.type !== 'unary') {
-        rules.push({
-          id: 'add_double_neg',
-          name: '← Add Double Negative',
-          category: 'Wrapping',
-          preview: 'a → --a',
-          apply: addDoubleNegation
-        });
-      }
-      
-      // Add multiplication by 1 (always available)
-      rules.push({
-        id: 'multiply_by_one',
-        name: '← Multiply by 1',
-        category: 'Wrapping',
-        preview: 'a → 1*a',
-        apply: multiplyByOne
-      });
-      
-      // Add division by 1 (always available)
-      rules.push({
-        id: 'divide_by_one',
-        name: '← Divide by 1',
-        category: 'Wrapping',
-        preview: 'a → a/1',
-        apply: divideByOne
-      });
-      
-      // Add addition of 0 (always available)
-      rules.push({
-        id: 'add_zero',
-        name: '← Add Zero',
-        category: 'Wrapping',
-        preview: 'a → a+0',
-        apply: addZero
-      });
-      
-      // === FORWARD OPERATIONS (Simplifications) ===
-      
+      // Evaluate multiplication constants
       if (node.type === 'operator' && node.value === '*') {
-        // Check for multiplication by 1
+        if (node.children && node.children[0].type === 'constant' && node.children[1].type === 'constant') {
+          rules.push({
+            id: 'eval_mult',
+            name: '→ Evaluate',
+            category: '1. Computation',
+            preview: `${node.children[0].value}*${node.children[1].value} → ${node.children[0].value * node.children[1].value}`,
+            apply: evaluateMultiplication
+          });
+        }
+      }
+      
+      // Evaluate division constants
+      if (node.type === 'operator' && node.value === '/') {
+        if (node.children && node.children[0].type === 'constant' && node.children[1].type === 'constant') {
+          rules.push({
+            id: 'eval_div',
+            name: '→ Evaluate',
+            category: '1. Computation',
+            preview: `${node.children[0].value}/${node.children[1].value} → ${node.children[0].value / node.children[1].value}`,
+            apply: evaluateDivision
+          });
+        }
+      }
+      
+      // Evaluate addition/subtraction constants
+      if (node.type === 'operator' && (node.value === '+' || node.value === '-')) {
+        if (node.children && node.children[0].type === 'constant' && node.children[1].type === 'constant') {
+          rules.push({
+            id: 'eval_add_sub',
+            name: '→ Evaluate',
+            category: '1. Computation',
+            preview: `${node.children[0].value}${node.value}${node.children[1].value} → ${node.value === '+' ? node.children[0].value + node.children[1].value : node.children[0].value - node.children[1].value}`,
+            apply: node.value === '+' ? evaluateAddition : evaluateSubtraction
+          });
+        }
+      }
+      
+      // === PRIORITY 2: SIMPLIFICATION ===
+      
+      // Remove multiplication by 1
+      if (node.type === 'operator' && node.value === '*') {
         if (node.children && ((node.children[0].type === 'constant' && node.children[0].value === 1) ||
                                (node.children[1].type === 'constant' && node.children[1].value === 1))) {
           rules.push({
             id: 'remove_mult_one',
             name: '→ Remove *1',
-            category: 'Simplification',
+            category: '2. Simplification',
             preview: 'a*1 → a or 1*a → a',
             apply: removeMultiplicationByOne
           });
         }
-        
-        // Check for multiplication by 0
+      }
+      
+      // Simplify multiplication by 0
+      if (node.type === 'operator' && node.value === '*') {
         if (node.children && ((node.children[0].type === 'constant' && node.children[0].value === 0) ||
                                (node.children[1].type === 'constant' && node.children[1].value === 0))) {
           rules.push({
             id: 'simplify_mult_zero',
             name: '→ Simplify to 0',
-            category: 'Simplification',
+            category: '2. Simplification',
             preview: 'a*0 → 0',
             apply: simplifyMultiplicationByZero
           });
         }
-        
-        // Evaluate constants
-        if (node.children && node.children[0].type === 'constant' && node.children[1].type === 'constant') {
+      }
+      
+      // Remove division by 1
+      if (node.type === 'operator' && node.value === '/') {
+        if (node.children && node.children[1].type === 'constant' && node.children[1].value === 1) {
           rules.push({
-            id: 'eval_mult',
-            name: '→ Evaluate',
-            category: 'Computation',
-            preview: `${node.children[0].value}*${node.children[1].value} → ${node.children[0].value * node.children[1].value}`,
-            apply: evaluateMultiplication
+            id: 'remove_div_one',
+            name: '→ Remove /1',
+            category: '2. Simplification',
+            preview: 'a/1 → a',
+            apply: removeDivisionByOne
           });
         }
-        
+      }
+      
+      // Remove addition of 0
+      if (node.type === 'operator' && node.value === '+') {
+        if (node.children && 
+            ((node.children[0].type === 'constant' && node.children[0].value === 0) ||
+             (node.children[1].type === 'constant' && node.children[1].value === 0))) {
+          rules.push({
+            id: 'remove_add_zero',
+            name: '→ Remove +0',
+            category: '2. Simplification',
+            preview: 'a+0 → a or 0+a → a',
+            apply: removeAdditionOfZero
+          });
+        }
+      }
+      
+      // Remove subtraction of 0
+      if (node.type === 'operator' && node.value === '-') {
+        if (node.children && node.children[1].type === 'constant' && node.children[1].value === 0) {
+          rules.push({
+            id: 'remove_sub_zero',
+            name: '→ Remove -0',
+            category: '2. Simplification',
+            preview: 'a-0 → a',
+            apply: removeSubtractionOfZero
+          });
+        }
+      }
+      
+      // Remove double negation
+      if (node.type === 'unary') {
+        if (node.children && node.children[0] && node.children[0].type === 'unary') {
+          console.log('Adding double negation rule');
+          rules.push({
+            id: 'double_negation',
+            name: '→ Remove Double Negative',
+            category: '2. Simplification',
+            preview: '--a → a',
+            apply: removeDoubleNegation
+          });
+        }
+      }
+      
+      // Remove unnecessary parentheses
+      if (node.type === 'group') {
+        if (node.children && node.children[0] && node.children[0].type !== 'operator') {
+          console.log('Adding remove parens rule');
+          rules.push({
+            id: 'remove_parens',
+            name: '→ Remove Parentheses',
+            category: '2. Simplification',
+            preview: '(a) → a',
+            apply: removeParentheses
+          });
+        }
+      }
+      
+      // Factor out (distributive reverse)
+      if (node.type === 'operator' && (node.value === '+' || node.value === '-')) {
+        if (canFactor(node)) {
+          console.log('Adding factor out rule');
+          rules.push({
+            id: 'distributive_reverse',
+            name: '← Factor Out',
+            category: '2. Simplification',
+            preview: 'a*b + a*c → a*(b+c)',
+            apply: applyDistributiveReverse
+          });
+        }
+      }
+      
+      // === PRIORITY 3: TRANSFORMATIONS ===
+      
+      // Distributive property - expand multiplication
+      if (node.type === 'operator' && node.value === '*') {
         // Distributive property - check if right child is addition/subtraction
         if (node.children && node.children[1] && (node.children[1].type === 'operator') && 
             (node.children[1].value === '+' || node.children[1].value === '-')) {
@@ -993,7 +1332,7 @@
           rules.push({
             id: 'distributive_forward',
             name: '→ Expand (Distributive)',
-            category: 'Expansion',
+            category: '3. Transformation',
             preview: 'a*(b+c) → a*b + a*c',
             apply: applyDistributiveForward
           });
@@ -1006,19 +1345,49 @@
           rules.push({
             id: 'distributive_forward_left',
             name: '→ Expand (Distributive)',
-            category: 'Expansion',
+            category: '3. Transformation',
             preview: '(a+b)*c → a*c + b*c',
             apply: applyDistributiveForwardLeft
           });
         }
-        
-        // Implicit multiplication
+      }
+      
+      // === PRIORITY 4: REARRANGEMENT ===
+      
+      // Commutative property for multiplication
+      if (node.type === 'operator' && node.value === '*') {
+        console.log('Adding commutative mul rule');
+        rules.push({
+          id: 'commutative_mul',
+          name: 'Swap Operands',
+          category: '4. Rearrangement',
+          preview: 'a*b → b*a',
+          apply: applyCommutative
+        });
+      }
+      
+      // Commutative property for addition
+      if (node.type === 'operator' && node.value === '+') {
+        console.log('Adding commutative add rule');
+        rules.push({
+          id: 'commutative_add',
+          name: 'Swap Operands',
+          category: '4. Rearrangement',
+          preview: 'a+b → b+a',
+          apply: applyCommutative
+        });
+      }
+      
+      // === PRIORITY 5: NOTATION ===
+      
+      // Implicit/Explicit multiplication
+      if (node.type === 'operator' && node.value === '*') {
         if (node.implicit) {
           console.log('Adding make explicit rule');
           rules.push({
             id: 'make_explicit',
             name: '→ Make Explicit',
-            category: 'Notation',
+            category: '5. Notation',
             preview: 'ab → a * b',
             apply: makeMultiplicationExplicit
           });
@@ -1033,136 +1402,65 @@
               rules.push({
                 id: 'make_implicit',
                 name: '← Make Implicit',
-                category: 'Notation',
+                category: '5. Notation',
                 preview: 'a * b → ab',
                 apply: makeMultiplicationImplicit
               });
             }
           }
         }
-        
-        // Commutative property - always available for multiplication
-        console.log('Adding commutative mul rule');
+      }
+      
+      // === PRIORITY 6: WRAPPING ===
+      
+      // Add parentheses (always available)
+      if (node.type !== 'group') {
         rules.push({
-          id: 'commutative_mul',
-          name: 'Swap Operands',
-          category: 'Rearrangement',
-          preview: 'a*b → b*a',
-          apply: applyCommutative
+          id: 'add_parens',
+          name: '← Add Parentheses',
+          category: '6. Wrapping',
+          preview: 'a → (a)',
+          apply: addParentheses
         });
       }
       
-      if (node.type === 'operator' && node.value === '/') {
-        // Check for division by 1
-        if (node.children && node.children[1].type === 'constant' && node.children[1].value === 1) {
-          rules.push({
-            id: 'remove_div_one',
-            name: '→ Remove /1',
-            category: 'Simplification',
-            preview: 'a/1 → a',
-            apply: removeDivisionByOne
-          });
-        }
-        
-        // Evaluate constants
-        if (node.children && node.children[0].type === 'constant' && node.children[1].type === 'constant') {
-          rules.push({
-            id: 'eval_div',
-            name: '→ Evaluate',
-            category: 'Computation',
-            preview: `${node.children[0].value}/${node.children[1].value} → ${node.children[0].value / node.children[1].value}`,
-            apply: evaluateDivision
-          });
-        }
+      // Add double negation (always available)
+      if (node.type !== 'unary') {
+        rules.push({
+          id: 'add_double_neg',
+          name: '← Add Double Negative',
+          category: '6. Wrapping',
+          preview: 'a → --a',
+          apply: addDoubleNegation
+        });
       }
       
-      if (node.type === 'operator' && (node.value === '+' || node.value === '-')) {
-        // Check for addition/subtraction of 0
-        if (node.value === '+' && node.children && 
-            ((node.children[0].type === 'constant' && node.children[0].value === 0) ||
-             (node.children[1].type === 'constant' && node.children[1].value === 0))) {
-          rules.push({
-            id: 'remove_add_zero',
-            name: '→ Remove +0',
-            category: 'Simplification',
-            preview: 'a+0 → a or 0+a → a',
-            apply: removeAdditionOfZero
-          });
-        }
-        
-        if (node.value === '-' && node.children && node.children[1].type === 'constant' && node.children[1].value === 0) {
-          rules.push({
-            id: 'remove_sub_zero',
-            name: '→ Remove -0',
-            category: 'Simplification',
-            preview: 'a-0 → a',
-            apply: removeSubtractionOfZero
-          });
-        }
-        
-        // Evaluate constants
-        if (node.children && node.children[0].type === 'constant' && node.children[1].type === 'constant') {
-          rules.push({
-            id: 'eval_add_sub',
-            name: '→ Evaluate',
-            category: 'Computation',
-            preview: `${node.children[0].value}${node.value}${node.children[1].value} → ${node.value === '+' ? node.children[0].value + node.children[1].value : node.children[0].value - node.children[1].value}`,
-            apply: node.value === '+' ? evaluateAddition : evaluateSubtraction
-          });
-        }
-        
-        // Commutative property (addition only)
-        if (node.value === '+') {
-          console.log('Adding commutative add rule');
-          rules.push({
-            id: 'commutative_add',
-            name: 'Swap Operands',
-            category: 'Rearrangement',
-            preview: 'a+b → b+a',
-            apply: applyCommutative
-          });
-        }
-        
-        // Check for distributive factoring
-        if (canFactor(node)) {
-          console.log('Adding factor out rule');
-          rules.push({
-            id: 'distributive_reverse',
-            name: '← Factor Out',
-            category: 'Simplification',
-            preview: 'a*b + a*c → a*(b+c)',
-            apply: applyDistributiveReverse
-          });
-        }
-      }
+      // Add multiplication by 1 (always available)
+      rules.push({
+        id: 'multiply_by_one',
+        name: '← Multiply by 1',
+        category: '6. Wrapping',
+        preview: 'a → 1*a',
+        apply: multiplyByOne
+      });
       
-      if (node.type === 'unary') {
-        // Double negation
-        if (node.children && node.children[0] && node.children[0].type === 'unary') {
-          console.log('Adding double negation rule');
-          rules.push({
-            id: 'double_negation',
-            name: 'Remove Double Negative',
-            category: 'Simplification',
-            preview: '--a → a',
-            apply: removeDoubleNegation
-          });
-        }
-      }
+      // Add division by 1 (always available)
+      rules.push({
+        id: 'divide_by_one',
+        name: '← Divide by 1',
+        category: '6. Wrapping',
+        preview: 'a → a/1',
+        apply: divideByOne
+      });
       
-      if (node.type === 'group') {
-        // Remove unnecessary parentheses
-        if (node.children && node.children[0] && node.children[0].type !== 'operator') {
-          console.log('Adding remove parens rule');
-          rules.push({
-            id: 'remove_parens',
-            name: 'Remove Parentheses',
-            category: 'Simplification',
-            preview: '(a) → a',
-            apply: removeParentheses
-          });
-        }
-      }
+      // Add addition of 0 (always available)
+      rules.push({
+        id: 'add_zero',
+        name: '← Add Zero',
+        category: '6. Wrapping',
+        preview: 'a → a+0',
+        apply: addZero
+      });
       
       console.log('Total rules found:', rules.length);
       return rules;
@@ -1466,6 +1764,35 @@
           setTimeout(() => changedBlock.classList.remove('changed'), 2000);
         }
       }, 50);
+    }
+
+    // Apply transformation to a selected subexpression
+    function applyTransformationToSubexpression(subNode, rule, selectedText) {
+      // Apply the transformation to the subexpression
+      const transformed = rule.apply(subNode);
+      const transformedText = expressionToString(transformed);
+      
+      // Get the full expression text
+      const fullExprText = expressionToString(currentExpression);
+      
+      // Replace the selected subexpression in the full expression
+      const newExprText = fullExprText.replace(selectedText, transformedText);
+      
+      try {
+        // Parse the new expression
+        const parser = new ExpressionParser(newExprText);
+        const newExpression = parser.parse();
+        
+        currentExpression = newExpression;
+        renderExpression(currentExpression, document.getElementById('expressionDisplay'));
+        addToHistory(rule, selectedText, transformedText);
+        
+        // Clear selection
+        window.getSelection().removeAllRanges();
+      } catch (e) {
+        console.error('Failed to parse new expression:', newExprText, e);
+        alert('Failed to apply transformation: ' + e.message);
+      }
     }
 
     // History management
