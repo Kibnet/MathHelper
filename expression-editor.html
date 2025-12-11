@@ -783,9 +783,34 @@
         menu.appendChild(item);
       });
       
-      menu.style.left = event.clientX + 'px';
-      menu.style.top = event.clientY + 'px';
+      // Position menu and ensure it stays within viewport
       menu.classList.add('visible');
+      
+      // Get menu dimensions
+      const menuRect = menu.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      // Calculate position
+      let left = event.clientX;
+      let top = event.clientY;
+      
+      // Adjust horizontal position if menu would overflow right edge
+      if (left + menuRect.width > viewportWidth) {
+        left = viewportWidth - menuRect.width - 10; // 10px padding from edge
+      }
+      
+      // Adjust vertical position if menu would overflow bottom edge
+      if (top + menuRect.height > viewportHeight) {
+        top = viewportHeight - menuRect.height - 10; // 10px padding from edge
+      }
+      
+      // Ensure menu doesn't go off the left or top edges
+      left = Math.max(10, left);
+      top = Math.max(10, top);
+      
+      menu.style.left = left + 'px';
+      menu.style.top = top + 'px';
       
       // Close menu when clicking outside
       setTimeout(() => {
