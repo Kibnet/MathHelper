@@ -3,54 +3,55 @@
  * Defines all available transformation rules and their applicability
  */
 
+import type { ASTNode, ConstantNode, OperatorNode, TransformationRule } from '../types/index.js';
 import { generateId } from './parser.js';
 
 /**
  * Get all applicable transformation rules for a node
- * @param {Object} node - AST node
- * @returns {Array} Array of applicable rule objects
  */
-export function getApplicableRules(node) {
-  const rules = [];
-  
-  if (!node) return rules;
+export function getApplicableRules(node: ASTNode): TransformationRule[] {
+  const rules: TransformationRule[] = [];
   
   // === PRIORITY 1: COMPUTATION ===
   
-  // Evaluate multiplication constants
   if (node.type === 'operator' && node.value === '*') {
-    if (node.children && node.children[0].type === 'constant' && node.children[1].type === 'constant') {
+    if (node.children[0].type === 'constant' && node.children[1].type === 'constant') {
+      const left = node.children[0] as ConstantNode;
+      const right = node.children[1] as ConstantNode;
       rules.push({
         id: 'eval_mul',
         name: '→ Evaluate',
         category: '1. Computation',
-        preview: `${node.children[0].value}*${node.children[1].value} → ${node.children[0].value * node.children[1].value}`,
+        preview: `${left.value}*${right.value} → ${left.value * right.value}`,
         apply: evaluateMultiplication
       });
     }
   }
   
-  // Evaluate division constants
   if (node.type === 'operator' && node.value === '/') {
-    if (node.children && node.children[0].type === 'constant' && node.children[1].type === 'constant') {
+    if (node.children[0].type === 'constant' && node.children[1].type === 'constant') {
+      const left = node.children[0] as ConstantNode;
+      const right = node.children[1] as ConstantNode;
       rules.push({
         id: 'eval_div',
         name: '→ Evaluate',
         category: '1. Computation',
-        preview: `${node.children[0].value}/${node.children[1].value} → ${node.children[0].value / node.children[1].value}`,
+        preview: `${left.value}/${right.value} → ${left.value / right.value}`,
         apply: evaluateDivision
       });
     }
   }
   
-  // Evaluate addition/subtraction constants
   if (node.type === 'operator' && (node.value === '+' || node.value === '-')) {
-    if (node.children && node.children[0].type === 'constant' && node.children[1].type === 'constant') {
+    if (node.children[0].type === 'constant' && node.children[1].type === 'constant') {
+      const left = node.children[0] as ConstantNode;
+      const right = node.children[1] as ConstantNode;
+      const result = node.value === '+' ? left.value + right.value : left.value - right.value;
       rules.push({
         id: 'eval_add_sub',
         name: '→ Evaluate',
         category: '1. Computation',
-        preview: `${node.children[0].value}${node.value}${node.children[1].value} → ${node.value === '+' ? node.children[0].value + node.children[1].value : node.children[0].value - node.children[1].value}`,
+        preview: `${left.value}${node.value}${right.value} → ${result}`,
         apply: node.value === '+' ? evaluateAddition : evaluateSubtraction
       });
     }
@@ -58,10 +59,9 @@ export function getApplicableRules(node) {
   
   // === PRIORITY 2: SIMPLIFICATION ===
   
-  // Remove multiplication by 1
   if (node.type === 'operator' && node.value === '*') {
-    if (node.children && ((node.children[0].type === 'constant' && node.children[0].value === 1) ||
-                           (node.children[1].type === 'constant' && node.children[1].value === 1))) {
+    if ((node.children[0].type === 'constant' && node.children[0].value === 1) ||
+        (node.children[1].type === 'constant' && node.children[1].value === 1)) {
       rules.push({
         id: 'remove_mult_one',
         name: '→ Remove *1',
@@ -72,10 +72,9 @@ export function getApplicableRules(node) {
     }
   }
   
-  // Simplify multiplication by 0
   if (node.type === 'operator' && node.value === '*') {
-    if (node.children && ((node.children[0].type === 'constant' && node.children[0].value === 0) ||
-                           (node.children[1].type === 'constant' && node.children[1].value === 0))) {
+    if ((node.children[0].type === 'constant' && node.children[0].value === 0) ||
+        (node.children[1].type === 'constant' && node.children[1].value === 0)) {
       rules.push({
         id: 'simplify_mult_zero',
         name: '→ Simplify to 0',
@@ -86,9 +85,8 @@ export function getApplicableRules(node) {
     }
   }
   
-  // Remove division by 1
   if (node.type === 'operator' && node.value === '/') {
-    if (node.children && node.children[1].type === 'constant' && node.children[1].value === 1) {
+    if (node.children[1].type === 'constant' && node.children[1].value === 1) {
       rules.push({
         id: 'remove_div_one',
         name: '→ Remove /1',
@@ -99,11 +97,9 @@ export function getApplicableRules(node) {
     }
   }
   
-  // Remove addition of 0
   if (node.type === 'operator' && node.value === '+') {
-    if (node.children && 
-        ((node.children[0].type === 'constant' && node.children[0].value === 0) ||
-         (node.children[1].type === 'constant' && node.children[1].value === 0))) {
+    if ((node.children[0].type === 'constant' && node.children[0].value === 0) ||
+        (node.children[1].type === 'constant' && node.children[1].value === 0)) {
       rules.push({
         id: 'remove_add_zero',
         name: '→ Remove +0',
@@ -114,9 +110,8 @@ export function getApplicableRules(node) {
     }
   }
   
-  // Remove subtraction of 0
   if (node.type === 'operator' && node.value === '-') {
-    if (node.children && node.children[1].type === 'constant' && node.children[1].value === 0) {
+    if (node.children[1].type === 'constant' && node.children[1].value === 0) {
       rules.push({
         id: 'remove_sub_zero',
         name: '→ Remove -0',
@@ -127,51 +122,30 @@ export function getApplicableRules(node) {
     }
   }
   
-  // Remove double negation
-  if (node.type === 'unary') {
-    if (node.children && node.children[0] && node.children[0].type === 'unary') {
-      rules.push({
-        id: 'double_negation',
-        name: '→ Remove Double Negative',
-        category: '2. Simplification',
-        preview: '--a → a',
-        apply: removeDoubleNegation
-      });
-    }
+  if (node.type === 'unary' && node.children[0].type === 'unary') {
+    rules.push({
+      id: 'double_negation',
+      name: '→ Remove Double Negative',
+      category: '2. Simplification',
+      preview: '--a → a',
+      apply: removeDoubleNegation
+    });
   }
   
-  // Remove unnecessary parentheses
-  if (node.type === 'group') {
-    if (node.children && node.children[0] && node.children[0].type !== 'operator') {
-      rules.push({
-        id: 'remove_parens',
-        name: '→ Remove Parentheses',
-        category: '2. Simplification',
-        preview: '(a) → a',
-        apply: removeParentheses
-      });
-    }
-  }
-  
-  // Factor out (distributive reverse)
-  if (node.type === 'operator' && (node.value === '+' || node.value === '-')) {
-    if (canFactor(node)) {
-      rules.push({
-        id: 'distributive_reverse',
-        name: '← Factor Out',
-        category: '2. Simplification',
-        preview: 'a*b + a*c → a*(b+c)',
-        apply: applyDistributiveReverse
-      });
-    }
+  if (node.type === 'group' && node.children[0].type !== 'operator') {
+    rules.push({
+      id: 'remove_parens',
+      name: '→ Remove Parentheses',
+      category: '2. Simplification',
+      preview: '(a) → a',
+      apply: removeParentheses
+    });
   }
   
   // === PRIORITY 3: TRANSFORMATIONS ===
   
-  // Distributive property - expand multiplication
   if (node.type === 'operator' && node.value === '*') {
-    // Distributive property - check if right child is addition/subtraction
-    if (node.children && node.children[1] && (node.children[1].type === 'operator') && 
+    if (node.children[1].type === 'operator' && 
         (node.children[1].value === '+' || node.children[1].value === '-')) {
       rules.push({
         id: 'distributive_forward',
@@ -182,8 +156,7 @@ export function getApplicableRules(node) {
       });
     }
     
-    // Also check if left child is addition/subtraction: (a+b)*c
-    if (node.children && node.children[0] && (node.children[0].type === 'operator') && 
+    if (node.children[0].type === 'operator' && 
         (node.children[0].value === '+' || node.children[0].value === '-')) {
       rules.push({
         id: 'distributive_forward_left',
@@ -197,7 +170,6 @@ export function getApplicableRules(node) {
   
   // === PRIORITY 4: REARRANGEMENT ===
   
-  // Commutative property for multiplication
   if (node.type === 'operator' && node.value === '*') {
     rules.push({
       id: 'commutative_mul',
@@ -208,7 +180,6 @@ export function getApplicableRules(node) {
     });
   }
   
-  // Commutative property for addition
   if (node.type === 'operator' && node.value === '+') {
     rules.push({
       id: 'commutative_add',
@@ -221,7 +192,6 @@ export function getApplicableRules(node) {
   
   // === PRIORITY 5: WRAPPING ===
   
-  // Add parentheses - Only applicable for certain contexts
   if (node.type !== 'group') {
     rules.push({
       id: 'add_parens',
@@ -232,7 +202,6 @@ export function getApplicableRules(node) {
     });
   }
   
-  // Apply double negation
   rules.push({
     id: 'add_double_neg',
     name: '+ Add Double Negative',
@@ -241,16 +210,14 @@ export function getApplicableRules(node) {
     apply: applyDoubleNegation
   });
   
-  // Multiply by 1
   rules.push({
     id: 'multiply_by_one',
     name: '+ Multiply by 1',
     category: '5. Wrapping',
-    preview: 'a → a*1 or 1*a',
+    preview: 'a → a*1',
     apply: multiplyByOne
   });
   
-  // Divide by 1
   rules.push({
     id: 'divide_by_one',
     name: '+ Divide by 1',
@@ -259,12 +226,11 @@ export function getApplicableRules(node) {
     apply: divideByOne
   });
   
-  // Add 0
   rules.push({
     id: 'add_zero',
     name: '+ Add Zero',
     category: '5. Wrapping',
-    preview: 'a → a+0 or 0+a',
+    preview: 'a → a+0',
     apply: addZero
   });
   
@@ -273,46 +239,59 @@ export function getApplicableRules(node) {
 
 // === Transformation Functions ===
 
-function evaluateMultiplication(node) {
+function evaluateMultiplication(node: ASTNode): ConstantNode {
+  const n = node as OperatorNode;
+  const left = n.children[0] as ConstantNode;
+  const right = n.children[1] as ConstantNode;
   return {
     id: generateId(),
     type: 'constant',
-    value: node.children[0].value * node.children[1].value
+    value: left.value * right.value
   };
 }
 
-function evaluateDivision(node) {
+function evaluateDivision(node: ASTNode): ConstantNode {
+  const n = node as OperatorNode;
+  const left = n.children[0] as ConstantNode;
+  const right = n.children[1] as ConstantNode;
   return {
     id: generateId(),
     type: 'constant',
-    value: node.children[0].value / node.children[1].value
+    value: left.value / right.value
   };
 }
 
-function evaluateAddition(node) {
+function evaluateAddition(node: ASTNode): ConstantNode {
+  const n = node as OperatorNode;
+  const left = n.children[0] as ConstantNode;
+  const right = n.children[1] as ConstantNode;
   return {
     id: generateId(),
     type: 'constant',
-    value: node.children[0].value + node.children[1].value
+    value: left.value + right.value
   };
 }
 
-function evaluateSubtraction(node) {
+function evaluateSubtraction(node: ASTNode): ConstantNode {
+  const n = node as OperatorNode;
+  const left = n.children[0] as ConstantNode;
+  const right = n.children[1] as ConstantNode;
   return {
     id: generateId(),
     type: 'constant',
-    value: node.children[0].value - node.children[1].value
+    value: left.value - right.value
   };
 }
 
-function removeMultiplicationByOne(node) {
-  if (node.children[0].type === 'constant' && node.children[0].value === 1) {
-    return node.children[1];
+function removeMultiplicationByOne(node: ASTNode): ASTNode {
+  const n = node as OperatorNode;
+  if (n.children[0].type === 'constant' && (n.children[0] as ConstantNode).value === 1) {
+    return n.children[1];
   }
-  return node.children[0];
+  return n.children[0];
 }
 
-function simplifyMultiplicationByZero(node) {
+function simplifyMultiplicationByZero(): ConstantNode {
   return {
     id: generateId(),
     type: 'constant',
@@ -320,40 +299,48 @@ function simplifyMultiplicationByZero(node) {
   };
 }
 
-function removeDivisionByOne(node) {
-  return node.children[0];
+function removeDivisionByOne(node: ASTNode): ASTNode {
+  const n = node as OperatorNode;
+  return n.children[0];
 }
 
-function removeAdditionOfZero(node) {
-  if (node.children[0].type === 'constant' && node.children[0].value === 0) {
-    return node.children[1];
+function removeAdditionOfZero(node: ASTNode): ASTNode {
+  const n = node as OperatorNode;
+  if (n.children[0].type === 'constant' && (n.children[0] as ConstantNode).value === 0) {
+    return n.children[1];
   }
-  return node.children[0];
+  return n.children[0];
 }
 
-function removeSubtractionOfZero(node) {
-  return node.children[0];
+function removeSubtractionOfZero(node: ASTNode): ASTNode {
+  const n = node as OperatorNode;
+  return n.children[0];
 }
 
-function removeDoubleNegation(node) {
-  return node.children[0].children[0];
+function removeDoubleNegation(node: ASTNode): ASTNode {
+  const n = node as import('../types/index.js').UnaryNode;
+  const inner = n.children[0] as import('../types/index.js').UnaryNode;
+  return inner.children[0];
 }
 
-function removeParentheses(node) {
-  return node.children[0];
+function removeParentheses(node: ASTNode): ASTNode {
+  const n = node as import('../types/index.js').GroupNode;
+  return n.children[0];
 }
 
-function applyCommutative(node) {
+function applyCommutative(node: ASTNode): OperatorNode {
+  const n = node as OperatorNode;
   return {
-    ...node,
+    ...n,
     id: generateId(),
-    children: [node.children[1], node.children[0]]
+    children: [n.children[1], n.children[0]]
   };
 }
 
-function applyDistributiveForward(node) {
-  const a = node.children[0];
-  const bc = node.children[1];
+function applyDistributiveForward(node: ASTNode): OperatorNode {
+  const n = node as OperatorNode;
+  const a = n.children[0];
+  const bc = n.children[1] as OperatorNode;
   const b = bc.children[0];
   const c = bc.children[1];
   
@@ -368,9 +355,10 @@ function applyDistributiveForward(node) {
   };
 }
 
-function applyDistributiveForwardLeft(node) {
-  const ab = node.children[0];
-  const c = node.children[1];
+function applyDistributiveForwardLeft(node: ASTNode): OperatorNode {
+  const n = node as OperatorNode;
+  const ab = n.children[0] as OperatorNode;
+  const c = n.children[1];
   const a = ab.children[0];
   const b = ab.children[1];
   
@@ -385,17 +373,7 @@ function applyDistributiveForwardLeft(node) {
   };
 }
 
-function applyDistributiveReverse(node) {
-  // Implementation placeholder
-  return node;
-}
-
-function canFactor(node) {
-  // Simplified check for factoring
-  return false;
-}
-
-function addParentheses(node) {
+function addParentheses(node: ASTNode): import('../types/index.js').GroupNode {
   return {
     id: generateId(),
     type: 'group',
@@ -404,7 +382,7 @@ function addParentheses(node) {
   };
 }
 
-function applyDoubleNegation(node) {
+function applyDoubleNegation(node: ASTNode): import('../types/index.js').UnaryNode {
   return {
     id: generateId(),
     type: 'unary',
@@ -418,7 +396,7 @@ function applyDoubleNegation(node) {
   };
 }
 
-function multiplyByOne(node) {
+function multiplyByOne(node: ASTNode): OperatorNode {
   return {
     id: generateId(),
     type: 'operator',
@@ -430,7 +408,7 @@ function multiplyByOne(node) {
   };
 }
 
-function divideByOne(node) {
+function divideByOne(node: ASTNode): OperatorNode {
   return {
     id: generateId(),
     type: 'operator',
@@ -442,7 +420,7 @@ function divideByOne(node) {
   };
 }
 
-function addZero(node) {
+function addZero(node: ASTNode): OperatorNode {
   return {
     id: generateId(),
     type: 'operator',

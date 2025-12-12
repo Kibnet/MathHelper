@@ -3,23 +3,28 @@
  * Parses mathematical expressions into AST (Abstract Syntax Tree)
  */
 
+import type { ASTNode, ConstantNode, VariableNode, OperatorNode, UnaryNode, GroupNode, OperatorValue } from '../types/index.js';
+
 let nodeIdCounter = 0;
 
-export function generateId() {
+export function generateId(): string {
   return `node_${nodeIdCounter++}`;
 }
 
-export function resetIdCounter() {
+export function resetIdCounter(): void {
   nodeIdCounter = 0;
 }
 
 export class ExpressionParser {
-  constructor(input) {
+  private input: string;
+  private pos: number;
+
+  constructor(input: string) {
     this.input = input.replace(/\s+/g, '');
     this.pos = 0;
   }
 
-  parse() {
+  parse(): ASTNode {
     if (!this.input) throw new Error('Empty expression');
     const result = this.parseExpression();
     if (this.pos < this.input.length) {
@@ -28,59 +33,62 @@ export class ExpressionParser {
     return result;
   }
 
-  parseExpression() {
+  private parseExpression(): ASTNode {
     return this.parseAdditive();
   }
 
-  parseAdditive() {
+  private parseAdditive(): ASTNode {
     let left = this.parseMultiplicative();
     
     while (this.pos < this.input.length && (this.peek() === '+' || this.peek() === '-')) {
-      const op = this.consume();
+      const op = this.consume() as OperatorValue;
       const right = this.parseMultiplicative();
-      left = {
+      const node: OperatorNode = {
         id: generateId(),
         type: 'operator',
         value: op,
         children: [left, right]
       };
+      left = node;
     }
     
     return left;
   }
 
-  parseMultiplicative() {
+  private parseMultiplicative(): ASTNode {
     let left = this.parseUnary();
     
     while (this.pos < this.input.length && (this.peek() === '*' || this.peek() === '/')) {
-      const op = this.consume();
+      const op = this.consume() as OperatorValue;
       const right = this.parseUnary();
-      left = {
+      const node: OperatorNode = {
         id: generateId(),
         type: 'operator',
         value: op,
         children: [left, right]
       };
+      left = node;
     }
     
     return left;
   }
 
-  parseUnary() {
+  private parseUnary(): ASTNode {
     if (this.peek() === '-') {
       this.consume();
       const operand = this.parseUnary();
-      return {
+      const node: UnaryNode = {
         id: generateId(),
         type: 'unary',
         value: '-',
         children: [operand]
       };
+      return node;
     }
     return this.parsePrimary();
   }
 
-  parsePrimary() {
+  private parsePrimary(): ASTNode {
     if (this.peek() === '(') {
       this.consume();
       const expr = this.parseExpression();
@@ -88,51 +96,27 @@ export class ExpressionParser {
         throw new Error('Missing closing parenthesis');
       }
       this.consume();
-      return {
+      const node: GroupNode = {
         id: generateId(),
         type: 'group',
         value: 'group',
         children: [expr]
       };
+      return node;
     }
 
-    // Check for implicit multiplication (e.g., 2a, ab)
     if (this.isDigit(this.peek())) {
-      const num = this.parseNumber();
-      // Check if followed by variable or opening paren
-      if (this.pos < this.input.length && (this.isLetter(this.peek()) || this.peek() === '(')) {
-        const right = this.parsePrimary();
-        return {
-          id: generateId(),
-          type: 'operator',
-          value: '*',
-          children: [num, right],
-          implicit: true
-        };
-      }
-      return num;
+      return this.parseNumber();
     }
 
     if (this.isLetter(this.peek())) {
-      const variable = this.parseVariable();
-      // Check for implicit multiplication between variables
-      if (this.pos < this.input.length && this.isLetter(this.peek())) {
-        const right = this.parsePrimary();
-        return {
-          id: generateId(),
-          type: 'operator',
-          value: '*',
-          children: [variable, right],
-          implicit: true
-        };
-      }
-      return variable;
+      return this.parseVariable();
     }
 
     throw new Error(`Unexpected character: ${this.peek()}`);
   }
 
-  parseNumber() {
+  private parseNumber(): ConstantNode {
     let num = '';
     while (this.pos < this.input.length && (this.isDigit(this.peek()) || this.peek() === '.')) {
       num += this.consume();
@@ -144,7 +128,7 @@ export class ExpressionParser {
     };
   }
 
-  parseVariable() {
+  private parseVariable(): VariableNode {
     let name = '';
     while (this.pos < this.input.length && this.isLetter(this.peek())) {
       name += this.consume();
@@ -156,19 +140,19 @@ export class ExpressionParser {
     };
   }
 
-  peek() {
-    return this.input[this.pos];
+  private peek(): string {
+    return this.input[this.pos] || '';
   }
 
-  consume() {
-    return this.input[this.pos++];
+  private consume(): string {
+    return this.input[this.pos++] || '';
   }
 
-  isDigit(char) {
-    return char && /[0-9]/.test(char);
+  private isDigit(char: string): boolean {
+    return char !== '' && /[0-9]/.test(char);
   }
 
-  isLetter(char) {
-    return char && /[a-zA-Z]/.test(char);
+  private isLetter(char: string): boolean {
+    return char !== '' && /[a-zA-Z]/.test(char);
   }
 }

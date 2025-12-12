@@ -487,17 +487,16 @@
   </div>
 
   <script type="module">
-    // Import modules
-    import { ExpressionParser, resetIdCounter } from './js/core/parser.js';
+    // Import TypeScript modules (Vite will compile)
+    import { ExpressionParser, resetIdCounter } from './src/core/parser.ts';
     import { 
       findAllSubexpressions, 
       assignLevels, 
       calculateFramePositions,
-      calculateTotalHeight,
-      measureTextWidth 
-    } from './js/core/analyzer.js';
-    import { getApplicableRules } from './js/core/rules.js';
-    import { expressionToString } from './js/utils/helpers.js';
+      calculateTotalHeight
+    } from './src/core/analyzer.ts';
+    import { getApplicableRules } from './src/core/rules.ts';
+    import { expressionToString } from './src/utils/helpers.ts';
 
     // Global state
     let currentExpression = null;

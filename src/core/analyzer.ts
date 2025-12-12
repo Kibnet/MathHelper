@@ -3,16 +3,15 @@
  * Finds all valid subexpressions and determines frame layout
  */
 
+import type { Subexpression, SubexpressionPosition, LayoutConfig } from '../types/index.js';
 import { ExpressionParser } from './parser.js';
 import { getApplicableRules } from './rules.js';
 
 /**
  * Find all valid subexpressions in an expression string
- * @param {string} exprString - The expression string
- * @returns {Array} Array of subexpression objects
  */
-export function findAllSubexpressions(exprString) {
-  const subexpressions = [];
+export function findAllSubexpressions(exprString: string): Subexpression[] {
+  const subexpressions: Subexpression[] = [];
   const length = exprString.length;
   
   // Try all possible substrings
@@ -65,8 +64,8 @@ export function findAllSubexpressions(exprString) {
   }
   
   // Remove duplicates based on position
-  const uniqueSubexpressions = [];
-  const seen = new Set();
+  const uniqueSubexpressions: Subexpression[] = [];
+  const seen = new Set<string>();
   
   for (const subexpr of subexpressions) {
     const key = `${subexpr.start}-${subexpr.end}`;
@@ -81,11 +80,9 @@ export function findAllSubexpressions(exprString) {
 
 /**
  * Assign levels to subexpressions to avoid visual overlap
- * @param {Array} subexpressions - Array of subexpression objects
- * @returns {Array} Array of levels, each containing non-overlapping subexpressions
  */
-export function assignLevels(subexpressions) {
-  const levels = [];
+export function assignLevels(subexpressions: Subexpression[]): Subexpression[][] {
+  const levels: Subexpression[][] = [];
   
   subexpressions.forEach(subexpr => {
     let assignedLevel = -1;
@@ -121,31 +118,24 @@ export function assignLevels(subexpressions) {
 
 /**
  * Check if two ranges overlap
- * @param {number} start1 - Start of first range
- * @param {number} end1 - End of first range
- * @param {number} start2 - Start of second range
- * @param {number} end2 - End of second range
- * @returns {boolean} True if ranges overlap
  */
-export function doRangesOverlap(start1, end1, start2, end2) {
+export function doRangesOverlap(start1: number, end1: number, start2: number, end2: number): boolean {
   return !(end1 <= start2 || end2 <= start1);
 }
 
 /**
  * Calculate frame positions for subexpressions
- * @param {Array} subexpressions - Array of subexpression objects with levels
- * @param {string} exprString - The full expression string
- * @param {Object} config - Configuration object with LEVEL_HEIGHT, BASE_OFFSET
- * @returns {Array} Array of frame position objects
  */
-export function calculateFramePositions(subexpressions, exprString, config = {}) {
-  const { LEVEL_HEIGHT = 18, BASE_OFFSET = 5 } = config;
-  
-  const positions = subexpressions.map(subexpr => {
+export function calculateFramePositions(
+  subexpressions: Subexpression[],
+  exprString: string,
+  config: LayoutConfig = { LEVEL_HEIGHT: 18, BASE_OFFSET: 5 }
+): SubexpressionPosition[] {
+  const positions: SubexpressionPosition[] = subexpressions.map(subexpr => {
     const textBefore = exprString.substring(0, subexpr.start);
     const left = measureTextWidth(textBefore);
     const width = measureTextWidth(subexpr.text);
-    const top = BASE_OFFSET + (subexpr.level * LEVEL_HEIGHT);
+    const top = config.BASE_OFFSET + ((subexpr.level || 0) * config.LEVEL_HEIGHT);
     
     return {
       ...subexpr,
@@ -160,10 +150,13 @@ export function calculateFramePositions(subexpressions, exprString, config = {})
 
 /**
  * Measure text width using monospace font metrics
- * @param {string} text - Text to measure
- * @returns {number} Width in pixels
  */
-export function measureTextWidth(text) {
+export function measureTextWidth(text: string): number {
+  if (typeof document === 'undefined') {
+    // Fallback for Node.js environment
+    return text.length * 10;
+  }
+  
   const span = document.createElement('span');
   span.style.font = '1.3rem "Courier New", monospace';
   span.style.visibility = 'hidden';
@@ -178,12 +171,11 @@ export function measureTextWidth(text) {
 
 /**
  * Get total height needed for all frame levels
- * @param {Array} levels - Array of levels
- * @param {Object} config - Configuration object
- * @returns {number} Total height in pixels
  */
-export function calculateTotalHeight(levels, config = {}) {
-  const { LEVEL_HEIGHT = 18, BASE_OFFSET = 5 } = config;
+export function calculateTotalHeight(
+  levels: Subexpression[][],
+  config: LayoutConfig = { LEVEL_HEIGHT: 18, BASE_OFFSET: 5 }
+): number {
   const maxLevel = levels.length - 1;
-  return BASE_OFFSET + (maxLevel + 1) * LEVEL_HEIGHT + 5;
+  return config.BASE_OFFSET + (maxLevel + 1) * config.LEVEL_HEIGHT + 5;
 }

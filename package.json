@@ -1,0 +1,26 @@
+{
+  "name": "math-helper",
+  "version": "1.0.0",
+  "description": "Expression Editor with algebraic transformations",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "node --experimental-modules --loader ts-node/esm tests/run-tests.ts",
+    "dev": "vite",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10",
+    "@types/node": "^20.10.6"
+  },
+  "keywords": [
+    "expression",
+    "parser",
+    "algebra",
+    "transformation"
+  ],
+  "author": "",
+  "license": "MIT"
+}
