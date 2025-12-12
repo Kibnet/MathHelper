@@ -6,14 +6,20 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "test": "node --experimental-modules --loader ts-node/esm tests/run-tests.ts",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "coverage": "vitest run --coverage",
     "dev": "vite",
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/node": "^20.10.6",
+    "@vitest/ui": "^4.0.15",
+    "jsdom": "^27.3.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.10",
-    "@types/node": "^20.10.6"
+    "vitest": "^4.0.15"
   },
   "keywords": [
     "expression",

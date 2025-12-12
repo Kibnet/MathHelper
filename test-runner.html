@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MathHelper - Test Runner</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #1e1e1e;
+      --bg-secondary: #252526;
+      --bg-hover: #2a2d2e;
+      --text-primary: #d4d4d4;
+      --text-muted: #858585;
+      --border: #3e3e42;
+      --success: #4ec9b0;
+      --error: #f48771;
+      --warning: #dcdcaa;
+      --info: #569cd6;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 20px;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+    }
+
+    .stats {
+      display: flex;
+      gap: 30px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      padding: 10px 20px;
+      background: var(--bg-secondary);
+      border-radius: 4px;
+      border-left: 3px solid var(--info);
+    }
+
+    .stat.success {
+      border-left-color: var(--success);
+    }
+
+    .stat.error {
+      border-left-color: var(--error);
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    .controls {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      padding: 10px 20px;
+      background: var(--info);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: opacity 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.8;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .suite {
+      background: var(--bg-secondary);
+      border-radius: 4px;
+      margin-bottom: 15px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .suite-header {
+      padding: 15px 20px;
+      background: var(--bg-hover);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+
+    .suite-header:hover {
+      background: #323234;
+    }
+
+    .suite-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .suite-badge {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .suite-badge.success {
+      background: rgba(78, 201, 176, 0.2);
+      color: var(--success);
+    }
+
+    .suite-badge.error {
+      background: rgba(244, 135, 113, 0.2);
+      color: var(--error);
+    }
+
+    .suite-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .suite.expanded .suite-body {
+      max-height: 2000px;
+    }
+
+    .test {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .test.passed {
+      background: rgba(78, 201, 176, 0.05);
+    }
+
+    .test.failed {
+      background: rgba(244, 135, 113, 0.05);
+    }
+
+    .test-name {
+      flex: 1;
+    }
+
+    .test-status {
+      font-weight: 600;
+      margin-left: 10px;
+      white-space: nowrap;
+    }
+
+    .test-status.passed {
+      color: var(--success);
+    }
+
+    .test-status.failed {
+      color: var(--error);
+    }
+
+    .test-error {
+      margin-top: 8px;
+      padding: 10px;
+      background: rgba(244, 135, 113, 0.1);
+      border-left: 3px solid var(--error);
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      color: var(--error);
+      overflow-x: auto;
+    }
+
+    .test-duration {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-left: 10px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }
+
+    .loading::after {
+      content: '...';
+      animation: dots 1.5s steps(4, end) infinite;
+    }
+
+    @keyframes dots {
+      0%, 20% { content: '.'; }
+      40% { content: '..'; }
+      60% { content: '...'; }
+      80%, 100% { content: ''; }
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: var(--bg-secondary);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--info), var(--success));
+      transition: width 0.3s ease;
+    }
+
+    .filter-bar {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .filter-btn {
+      padding: 6px 12px;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+
+    .filter-btn.active {
+      background: var(--info);
+      border-color: var(--info);
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🧪 MathHelper Test Suite</h1>
+    <div class="stats" id="stats">
+      <div class="loading">Loading tests</div>
+    </div>
+  </div>
+
+  <div class="progress-bar">
+    <div class="progress-fill" id="progress" style="width: 0%"></div>
+  </div>
+
+  <div class="controls">
+    <button id="run-btn" onclick="runTests()">▶ Run All Tests</button>
+    <button id="expand-btn" onclick="expandAll()">Expand All</button>
+    <button id="collapse-btn" onclick="collapseAll()">Collapse All</button>
+  </div>
+
+  <div class="filter-bar">
+    <span style="color: var(--text-muted);">Filter:</span>
+    <button class="filter-btn active" onclick="filterTests('all')">All</button>
+    <button class="filter-btn" onclick="filterTests('passed')">✓ Passed</button>
+    <button class="filter-btn" onclick="filterTests('failed')">✗ Failed</button>
+  </div>
+
+  <div id="results"></div>
+
+  <script type="module">
+    import { runner } from './src/test/framework.ts';
+    
+    // Import all test files (Vite will compile TypeScript on-the-fly)
+    import './src/test/parser.test.ts';
+    import './src/test/helpers.test.ts';
+    import './src/test/analyzer.test.ts';
+    import './src/test/rules.test.ts';
+
+    // Make functions globally available
+    window.runner = runner;
+    window.renderResults = renderResults;
+    window.runTests = runTests;
+    window.expandAll = expandAll;
+    window.collapseAll = collapseAll;
+    window.filterTests = filterTests;
+
+    // Auto-run tests on load
+    setTimeout(runTests, 100);
+
+    function runTests() {
+      const runBtn = document.getElementById('run-btn');
+      runBtn.disabled = true;
+      runBtn.textContent = '⏳ Running...';
+
+      setTimeout(() => {
+        renderResults();
+        runBtn.disabled = false;
+        runBtn.textContent = '▶ Run All Tests';
+      }, 100);
+    }
+
+    function renderResults() {
+      const suites = runner.getSuites();
+      const stats = runner.getTotalStats();
+      
+      // Update stats
+      const statsHtml = `
+        <div class="stat">
+          <div class="stat-label">Test Suites</div>
+          <div class="stat-value">${stats.suites}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Total Tests</div>
+          <div class="stat-value">${stats.total}</div>
+        </div>
+        <div class="stat success">
+          <div class="stat-label">Passed</div>
+          <div class="stat-value">✓ ${stats.passed}</div>
+        </div>
+        <div class="stat error">
+          <div class="stat-label">Failed</div>
+          <div class="stat-value">✗ ${stats.failed}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Duration</div>
+          <div class="stat-value">${stats.duration.toFixed(2)}ms</div>
+        </div>
+      `;
+      document.getElementById('stats').innerHTML = statsHtml;
+
+      // Update progress
+      const progress = stats.total > 0 ? (stats.passed / stats.total) * 100 : 0;
+      document.getElementById('progress').style.width = progress + '%';
+      
+      // Render suites
+      const resultsHtml = suites.map(suite => {
+        const allPassed = suite.failed === 0;
+        const badgeClass = allPassed ? 'success' : 'error';
+        const badgeText = `${suite.passed}/${suite.tests.length}`;
+        
+        return `
+          <div class="suite" data-status="${allPassed ? 'passed' : 'failed'}">
+            <div class="suite-header" onclick="toggleSuite(this)">
+              <span class="suite-title">${suite.name}</span>
+              <div>
+                <span class="suite-badge ${badgeClass}">${badgeText}</span>
+                <span class="test-duration">${suite.duration.toFixed(2)}ms</span>
+              </div>
+            </div>
+            <div class="suite-body">
+              ${suite.tests.map(test => `
+                <div class="test ${test.passed ? 'passed' : 'failed'}">
+                  <div class="test-name">
+                    <span class="test-status ${test.passed ? 'passed' : 'failed'}">
+                      ${test.passed ? '✓' : '✗'}
+                    </span>
+                    ${test.name}
+                    ${test.error ? `<div class="test-error">${escapeHtml(test.error)}</div>` : ''}
+                  </div>
+                  <span class="test-duration">${test.duration.toFixed(2)}ms</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      document.getElementById('results').innerHTML = resultsHtml;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    window.toggleSuite = function(header) {
+      header.parentElement.classList.toggle('expanded');
+    };
+
+    window.expandAll = function() {
+      document.querySelectorAll('.suite').forEach(suite => {
+        suite.classList.add('expanded');
+      });
+    };
+
+    window.collapseAll = function() {
+      document.querySelectorAll('.suite').forEach(suite => {
+        suite.classList.remove('expanded');
+      });
+    };
+
+    window.filterTests = function(filter) {
+      // Update button states
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+
+      // Filter suites
+      document.querySelectorAll('.suite').forEach(suite => {
+        const status = suite.dataset.status;
+        if (filter === 'all') {
+          suite.style.display = 'block';
+        } else if (filter === 'passed' && status === 'passed') {
+          suite.style.display = 'block';
+        } else if (filter === 'failed' && status === 'failed') {
+          suite.style.display = 'block';
+        } else {
+          suite.style.display = 'none';
+        }
+      });
+    };
+  </script>
+</body>
+</html>

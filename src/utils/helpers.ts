@@ -160,3 +160,18 @@ export function nodesEqual(node1: ASTNode, node2: ASTNode): boolean {
   
   return false;
 }
+
+/**
+ * Get all node IDs in the AST
+ */
+export function getAllNodeIds(node: ASTNode): string[] {
+  const ids: string[] = [node.id];
+  
+  if ('children' in node && node.children) {
+    for (const child of node.children) {
+      ids.push(...getAllNodeIds(child));
+    }
+  }
+  
+  return ids;
+}
