@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expression Editor Modular Tests</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 20px;
+      background: #1a1a2e;
+      color: #eee;
+    }
+    .test-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #38bdf8;
+      margin-bottom: 30px;
+    }
+    .test-suite {
+      background: #16213e;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .test-suite h2 {
+      color: #22c55e;
+      margin-top: 0;
+    }
+    .test-case {
+      background: #0f172a;
+      border-left: 4px solid #38bdf8;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+    .test-case.pass {
+      border-left-color: #22c55e;
+    }
+    .test-case.fail {
+      border-left-color: #ef4444;
+    }
+    .test-name {
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .test-status {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+    .test-status.pass {
+      background: #22c55e;
+      color: #000;
+    }
+    .test-status.fail {
+      background: #ef4444;
+      color: #fff;
+    }
+    .test-error {
+      color: #ef4444;
+      font-family: monospace;
+      background: rgba(239, 68, 68, 0.1);
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+    .summary {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 30px;
+      display: flex;
+      justify-content: space-around;
+      text-align: center;
+    }
+    .summary-item {
+      flex: 1;
+    }
+    .summary-value {
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 10px 0;
+    }
+    .summary-label {
+      color: #94a3b8;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-container">
+    <h1>🧪 Expression Editor Modular Tests</h1>
+    <div id="testResults"></div>
+    <div class="summary" id="summary"></div>
+  </div>
+
+  <script type="module">
+    import { runParserTests } from './core/parser.test.js';
+    
+    // Test framework
+    class TestRunner {
+      constructor() {
+        this.tests = [];
+        this.results = [];
+      }
+
+      describe(suiteName, callback) {
+        const suite = { name: suiteName, tests: [] };
+        this.currentSuite = suite;
+        callback.call(this);
+        this.tests.push(suite);
+        this.currentSuite = null;
+      }
+
+      it(testName, testFn) {
+        if (!this.currentSuite) {
+          throw new Error('Test must be inside a describe block');
+        }
+        this.currentSuite.tests.push({ name: testName, fn: testFn });
+      }
+
+      expect(actual) {
+        return {
+          toBe: (expected) => {
+            if (actual !== expected) {
+              throw new Error(`Expected ${JSON.stringify(expected)}, but got ${JSON.stringify(actual)}`);
+            }
+          },
+          toEqual: (expected) => {
+            if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+              throw new Error(`Expected ${JSON.stringify(expected)}, but got ${JSON.stringify(actual)}`);
+            }
+          },
+          toContain: (expected) => {
+            if (!actual.includes(expected)) {
+              throw new Error(`Expected array to contain ${JSON.stringify(expected)}`);
+            }
+          },
+          toHaveLength: (expected) => {
+            if (actual.length !== expected) {
+              throw new Error(`Expected length ${expected}, but got ${actual.length}`);
+            }
+          },
+          toBeGreaterThan: (expected) => {
+            if (actual <= expected) {
+              throw new Error(`Expected ${actual} to be greater than ${expected}`);
+            }
+          },
+          toBeTruthy: () => {
+            if (!actual) {
+              throw new Error(`Expected value to be truthy, but got ${actual}`);
+            }
+          },
+          toThrow: () => {
+            try {
+              actual();
+              throw new Error('Expected function to throw an error');
+            } catch (e) {
+              // Expected - function threw an error
+              if (e.message === 'Expected function to throw an error') {
+                throw e;
+              }
+            }
+          }
+        };
+      }
+
+      async run() {
+        this.results = [];
+        const resultsDiv = document.getElementById('testResults');
+        resultsDiv.innerHTML = '';
+
+        for (const suite of this.tests) {
+          const suiteDiv = document.createElement('div');
+          suiteDiv.className = 'test-suite';
+          
+          const suiteTitle = document.createElement('h2');
+          suiteTitle.textContent = suite.name;
+          suiteDiv.appendChild(suiteTitle);
+
+          for (const test of suite.tests) {
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-case';
+            
+            const testName = document.createElement('div');
+            testName.className = 'test-name';
+            testName.textContent = test.name;
+            
+            let passed = false;
+            let error = null;
+            
+            try {
+              test.fn.call(this);
+              passed = true;
+            } catch (e) {
+              error = e.message;
+            }
+
+            const status = document.createElement('span');
+            status.className = `test-status ${passed ? 'pass' : 'fail'}`;
+            status.textContent = passed ? '✓ PASS' : '✗ FAIL';
+            testName.appendChild(status);
+            
+            testDiv.appendChild(testName);
+            
+            if (error) {
+              const errorDiv = document.createElement('div');
+              errorDiv.className = 'test-error';
+              errorDiv.textContent = error;
+              testDiv.appendChild(errorDiv);
+            }
+
+            testDiv.classList.add(passed ? 'pass' : 'fail');
+            suiteDiv.appendChild(testDiv);
+            
+            this.results.push({ suite: suite.name, test: test.name, passed, error });
+          }
+
+          resultsDiv.appendChild(suiteDiv);
+        }
+
+        this.showSummary();
+      }
+
+      showSummary() {
+        const total = this.results.length;
+        const passed = this.results.filter(r => r.passed).length;
+        const failed = total - passed;
+
+        const summaryDiv = document.getElementById('summary');
+        summaryDiv.innerHTML = `
+          <div class="summary-item">
+            <div class="summary-label">Total Tests</div>
+            <div class="summary-value" style="color: #38bdf8;">${total}</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Passed</div>
+            <div class="summary-value" style="color: #22c55e;">${passed}</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Failed</div>
+            <div class="summary-value" style="color: #ef4444;">${failed}</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Success Rate</div>
+            <div class="summary-value" style="color: ${failed === 0 ? '#22c55e' : '#f59e0b'};">${((passed/total) * 100).toFixed(1)}%</div>
+          </div>
+        `;
+      }
+    }
+
+    // Run tests
+    const runner = new TestRunner();
+    runParserTests(runner);
+    runner.run();
+  </script>
+</body>
+</html>

@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expression Editor - Modular Version</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Inline styles from original - will extract to styles.css later */
+    :root {
+      --bg: #020617;
+      --bg-card: rgba(15, 23, 42, 0.96);
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.15);
+      --border-subtle: rgba(148, 163, 184, 0.3);
+      --text-primary: #e5e7eb;
+      --text-muted: #9ca3af;
+      --danger: #f97316;
+      --success: #22c55e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at top left, #1d4ed8 0, transparent 55%),
+                  radial-gradient(circle at bottom right, #0f766e 0, transparent 55%),
+                  var(--bg);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-header {
+      text-align: center;
+      padding: 15px 20px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    .app-header h1 {
+      margin: 0 0 5px;
+      font-size: 1.8rem;
+      background: linear-gradient(135deg, #38bdf8, #22c55e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .app-header .subtitle {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .app-header .version-badge {
+      display: inline-block;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      margin-left: 10px;
+      border: 1px solid var(--accent);
+    }
+
+    .app-layout {
+      display: grid;
+      grid-template-columns: 300px 1fr 350px;
+      gap: 0;
+      height: calc(100vh - 80px);
+      overflow: hidden;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .input-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 10px 14px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 1rem;
+      font-family: 'Courier New', monospace;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    button {
+      padding: 10px 20px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.9rem;
+    }
+
+    button:hover {
+      background: #0ea5e9;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+    }
+
+    button.secondary {
+      background: rgba(148, 163, 184, 0.2);
+      color: var(--text-primary);
+    }
+
+    button.secondary:hover {
+      background: rgba(148, 163, 184, 0.3);
+    }
+
+    .expression-display {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 20px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .expression-text {
+      font-family: 'Courier New', monospace;
+      font-size: 1.3rem;
+      padding: 15px;
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 6px;
+      position: relative;
+      border: 2px solid var(--border-subtle);
+      transition: border-color 0.2s;
+      white-space: pre;
+      min-width: 100%;
+    }
+
+    .expression-text:hover {
+      border-color: var(--accent);
+    }
+
+    .expression-highlight {
+      position: absolute;
+      top: 0;
+      background: var(--accent-soft);
+      border-radius: 3px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      height: 1.5em;
+      margin-top: 20px;
+    }
+
+    .expression-highlight.active {
+      opacity: 1;
+    }
+
+    .expression-ranges {
+      position: absolute;
+      top: 100%;
+      left: 20px;
+      right: 20px;
+      height: auto;
+      min-height: 50px;
+      pointer-events: none;
+    }
+
+    .expression-range {
+      position: absolute;
+      height: 16px;
+      border: 2px solid;
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      pointer-events: auto;
+      opacity: 0.7;
+    }
+
+    .expression-range:hover {
+      opacity: 1;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .expression-range.active {
+      opacity: 1;
+      border-width: 3px;
+    }
+
+    /* Range colors */
+    .expression-range.level-0 { border-color: #3498db; }
+    .expression-range.level-1 { border-color: #9b59b6; }
+    .expression-range.level-2 { border-color: #27ae60; }
+    .expression-range.level-3 { border-color: #e67e22; }
+    .expression-range.level-4 { border-color: #e74c3c; }
+    .expression-range.level-5 { border-color: #1abc9c; }
+    .expression-range.level-6 { border-color: #f39c12; }
+    .expression-range.level-7 { border-color: #95a5a6; }
+
+    /* Left Panel - Commands */
+    .left-panel {
+      background: var(--bg-card);
+      border-right: 1px solid var(--border-subtle);
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .left-panel h3 {
+      margin: 0 0 15px;
+      color: var(--accent);
+      font-size: 1rem;
+    }
+
+    .commands-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    /* Center Panel - Main Content */
+    .center-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .input-section {
+      padding: 15px 20px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    .expression-section {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Right Panel - History & Description */
+    .right-panel {
+      background: var(--bg-card);
+      border-left: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .history-section {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .description-section {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+    }
+
+    .history-section h3,
+    .description-section h3 {
+      margin: 0 0 12px;
+      font-size: 0.95rem;
+    }
+
+    .history-section h3 {
+      color: var(--success);
+    }
+
+    .description-section h3 {
+      color: #f59e0b;
+    }
+
+    .history-item {
+      padding: 10px;
+      background: rgba(148, 163, 184, 0.05);
+      border-left: 3px solid var(--accent);
+      border-radius: 4px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .history-item:hover {
+      background: var(--accent-soft);
+      transform: translateX(4px);
+    }
+
+    .history-item.active {
+      background: var(--accent-soft);
+      border-left-color: var(--success);
+    }
+
+    .history-expression {
+      font-family: 'Courier New', monospace;
+      margin-bottom: 4px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .history-rule {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .description-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+
+    .description-panel h3 {
+      margin: 0 0 15px;
+      color: #f59e0b;
+    }
+
+    .description-content {
+      color: var(--text-muted);
+      line-height: 1.5;
+      font-size: 0.9rem;
+    }
+
+    .description-content strong {
+      color: var(--text-primary);
+    }
+
+    .description-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+
+    .description-panel h3 {
+      margin: 0 0 15px;
+      color: #f59e0b;
+    }
+
+    .command-item {
+      padding: 10px;
+      background: rgba(148, 163, 184, 0.05);
+      border: 1px solid transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 6px;
+    }
+
+    .command-item:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      transform: translateX(4px);
+    }
+
+    .command-name {
+      font-weight: 600;
+      margin-bottom: 3px;
+      font-size: 0.9rem;
+    }
+
+    .command-preview {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-family: 'Courier New', monospace;
+    }
+
+    .placeholder {
+      color: var(--text-muted);
+      text-align: center;
+      padding: 20px;
+      font-style: italic;
+      font-size: 0.85rem;
+    }
+
+    .error-message {
+      color: var(--danger);
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(249, 115, 22, 0.1);
+      border-radius: 4px;
+      display: none;
+      font-size: 0.85rem;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-header">
+    <h1>🧮 Expression Editor <span class="version-badge">✨ Modular</span></h1>
+    <p class="subtitle">Modular Architecture with ES6 Modules</p>
+  </div>
+
+  <div class="app-layout">
+    <!-- Left Panel: Commands -->
+    <div class="left-panel">
+      <h3>⚡ Available Commands</h3>
+      <div id="commandsPanel" class="commands-list">
+        <p class="placeholder">Select a frame to see transformations</p>
+      </div>
+    </div>
+
+    <!-- Center Panel: Input + Expression -->
+    <div class="center-panel">
+      <div class="input-section">
+        <div class="input-group">
+          <input 
+            type="text" 
+            id="expressionInput" 
+            placeholder="Enter expression: 2 * (a + 3) - b"
+            autocomplete="off"
+          >
+          <button id="buildBtn">Build</button>
+          <button id="clearBtn" class="secondary">Clear</button>
+        </div>
+        <div class="error-message" id="errorMessage"></div>
+      </div>
+
+      <div class="expression-section">
+        <div class="expression-display">
+          <div id="expressionContainer">
+            <p class="placeholder">
+              Enter an expression and click "Build"<br><br>
+              • Colored frames show subexpressions<br>
+              • Click frame → see commands<br>
+              • Hover → highlight text
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel: History + Description -->
+    <div class="right-panel">
+      <div class="history-section">
+        <h3>📜 History</h3>
+        <div id="historyPanel">
+          <p class="placeholder">Transformation history will appear here</p>
+        </div>
+      </div>
+
+      <div class="description-section">
+        <h3>📖 Rule Explanation</h3>
+        <div id="descriptionPanel" class="description-content">
+          <p class="placeholder">Select a transformation to see explanation</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Import modules
+    import { ExpressionParser, resetIdCounter } from './js/core/parser.js';
+    import { 
+      findAllSubexpressions, 
+      assignLevels, 
+      calculateFramePositions,
+      calculateTotalHeight,
+      measureTextWidth 
+    } from './js/core/analyzer.js';
+    import { getApplicableRules } from './js/core/rules.js';
+    import { expressionToString } from './js/utils/helpers.js';
+
+    // Global state
+    let currentExpression = null;
+    let currentNode = null;
+    let historyStates = [];
+    let currentStateIndex = -1;
+
+    // Rule descriptions
+    const ruleDescriptions = {
+      'eval_mul': 'Evaluates multiplication of two constant numbers, replacing the expression with the computed result.',
+      'eval_div': 'Evaluates division of two constant numbers, replacing the expression with the computed result.',
+      'eval_add_sub': 'Evaluates addition or subtraction of two constant numbers, replacing the expression with the computed result.',
+      'remove_mult_one': 'Removes multiplication by 1, as multiplying any expression by 1 yields the same expression (identity property).',
+      'simplify_mult_zero': 'Simplifies multiplication by 0 to 0, as any expression multiplied by 0 equals 0.',
+      'remove_div_one': 'Removes division by 1, as dividing any expression by 1 yields the same expression.',
+      'remove_add_zero': 'Removes addition of 0, as adding 0 to any expression yields the same expression (identity property).',
+      'remove_sub_zero': 'Removes subtraction of 0, as subtracting 0 from any expression yields the same expression.',
+      'double_negation': 'Removes double negation, as negating an expression twice yields the original expression.',
+      'remove_parens': 'Removes unnecessary parentheses around non-operator expressions.',
+      'distributive_forward': 'Expands multiplication over addition/subtraction using the distributive property: a*(b+c) = a*b + a*c',
+      'distributive_forward_left': 'Expands multiplication over addition/subtraction using the distributive property: (a+b)*c = a*c + b*c',
+      'commutative_mul': 'Swaps the operands of multiplication, using the commutative property: a*b = b*a',
+      'commutative_add': 'Swaps the operands of addition, using the commutative property: a+b = b+a',
+      'add_parens': 'Wraps the expression in parentheses for grouping.',
+      'add_double_neg': 'Applies double negation to the expression.',
+      'multiply_by_one': 'Multiplies the expression by 1 (identity transformation).',
+      'divide_by_one': 'Divides the expression by 1 (identity transformation).',
+      'add_zero': 'Adds 0 to the expression (identity transformation).'
+    };
+
+    // DOM elements
+    const expressionInput = document.getElementById('expressionInput');
+    const buildBtn = document.getElementById('buildBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const errorMessage = document.getElementById('errorMessage');
+    const expressionContainer = document.getElementById('expressionContainer');
+    const commandsPanel = document.getElementById('commandsPanel');
+    const historyPanel = document.getElementById('historyPanel');
+    const descriptionPanel = document.getElementById('descriptionPanel');
+
+    // Build expression
+    buildBtn.addEventListener('click', buildExpression);
+    expressionInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') buildExpression();
+    });
+
+    clearBtn.addEventListener('click', () => {
+      expressionInput.value = '';
+      expressionContainer.innerHTML = '<p class="placeholder">Enter an expression to get started</p>';
+      commandsPanel.innerHTML = '<p class="placeholder">Select a frame to see transformations</p>';
+      historyPanel.innerHTML = '<p class="placeholder">Transformation history will appear here</p>';
+      descriptionPanel.innerHTML = '<p class="placeholder">Select a transformation to see detailed explanation</p>';
+      errorMessage.classList.remove('show');
+      currentExpression = null;
+      currentNode = null;
+      historyStates = [];
+      currentStateIndex = -1;
+    });
+
+    function buildExpression() {
+      const input = expressionInput.value.trim();
+      
+      if (!input) {
+        showError('Please enter an expression');
+        return;
+      }
+
+      try {
+        resetIdCounter();
+        const parser = new ExpressionParser(input);
+        const ast = parser.parse();
+        currentNode = ast;
+        
+        const exprString = expressionToString(ast);
+        currentExpression = exprString;
+        
+        // Add to history
+        addToHistory(exprString, 'Initial expression', ast);
+        
+        renderExpression(exprString);
+        hideError();
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    function renderExpression(exprString) {
+      expressionContainer.innerHTML = '';
+      
+      // Create text element
+      const textDiv = document.createElement('div');
+      textDiv.className = 'expression-text';
+      textDiv.id = 'expressionText';
+      textDiv.textContent = exprString;
+      
+      // Create highlight element
+      const highlightDiv = document.createElement('div');
+      highlightDiv.className = 'expression-highlight';
+      highlightDiv.id = 'expressionHighlight';
+      textDiv.appendChild(highlightDiv);
+      
+      // Create ranges container
+      const rangesDiv = document.createElement('div');
+      rangesDiv.className = 'expression-ranges';
+      rangesDiv.id = 'expressionRanges';
+      textDiv.appendChild(rangesDiv);
+      
+      expressionContainer.appendChild(textDiv);
+      
+      // Create frames
+      createFrames(exprString, rangesDiv, highlightDiv);
+    }
+
+    function createFrames(exprString, rangesContainer, highlightElement) {
+      const subexpressions = findAllSubexpressions(exprString);
+      
+      if (subexpressions.length === 0) {
+        console.log('No valid subexpressions found');
+        return;
+      }
+
+      // Sort by start position, then by length
+      subexpressions.sort((a, b) => {
+        if (a.start !== b.start) return a.start - b.start;
+        return a.length - b.length;
+      });
+
+      // Assign levels
+      const levels = assignLevels(subexpressions);
+      
+      // Calculate positions
+      const config = { LEVEL_HEIGHT: 18, BASE_OFFSET: 5 };
+      const positions = calculateFramePositions(subexpressions, exprString, config);
+      
+      // Set container height
+      const totalHeight = calculateTotalHeight(levels, config);
+      rangesContainer.style.height = totalHeight + 'px';
+      
+      // Create frame elements
+      positions.forEach(pos => {
+        const frame = document.createElement('div');
+        frame.className = `expression-range level-${pos.level % 8}`;
+        
+        frame.style.left = pos.left + 'px';
+        frame.style.width = pos.width + 'px';
+        frame.style.top = pos.top + 'px';
+        
+        frame.title = pos.text;
+        frame.dataset.text = pos.text;
+        frame.dataset.start = pos.start;
+        frame.dataset.end = pos.end;
+        
+        // Hover to highlight
+        frame.addEventListener('mouseenter', () => {
+          highlightElement.style.left = pos.left + 'px';
+          highlightElement.style.width = pos.width + 'px';
+          highlightElement.classList.add('active');
+        });
+        
+        frame.addEventListener('mouseleave', () => {
+          highlightElement.classList.remove('active');
+        });
+        
+        // Click to show commands
+        frame.addEventListener('click', (e) => {
+          e.stopPropagation();
+          document.querySelectorAll('.expression-range').forEach(f => f.classList.remove('active'));
+          frame.classList.add('active');
+          showCommands(pos.node, pos.text, pos.rules);
+        });
+        
+        rangesContainer.appendChild(frame);
+      });
+      
+      console.log(`Created ${positions.length} frames across ${levels.length} levels`);
+    }
+
+    function showCommands(node, text, rules) {
+      commandsPanel.innerHTML = '';
+      
+      // Show selected expression
+      const selectionDiv = document.createElement('div');
+      selectionDiv.style.cssText = `
+        background: var(--accent-soft);
+        border: 1px solid var(--accent);
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-bottom: 15px;
+        color: var(--accent);
+        font-family: 'Courier New', monospace;
+        word-break: break-all;
+      `;
+      selectionDiv.textContent = `Selected: ${text}`;
+      commandsPanel.appendChild(selectionDiv);
+      
+      if (rules.length === 0) {
+        const placeholder = document.createElement('p');
+        placeholder.className = 'placeholder';
+        placeholder.textContent = 'No transformations available';
+        commandsPanel.appendChild(placeholder);
+        return;
+      }
+      
+      // Group rules by category
+      const grouped = {};
+      rules.forEach(rule => {
+        if (!grouped[rule.category]) grouped[rule.category] = [];
+        grouped[rule.category].push(rule);
+      });
+      
+      // Render grouped commands
+      Object.entries(grouped).forEach(([category, categoryRules]) => {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'command-category';
+        if (category === '1. Computation') categoryDiv.style.marginTop = '0';
+        if (category === '1. Computation') categoryDiv.style.borderTop = 'none';
+        categoryDiv.textContent = category;
+        commandsPanel.appendChild(categoryDiv);
+        
+        categoryRules.forEach(rule => {
+          const item = document.createElement('div');
+          item.className = 'command-item';
+          
+          const name = document.createElement('div');
+          name.className = 'command-name';
+          name.textContent = rule.name;
+          
+          const preview = document.createElement('div');
+          preview.className = 'command-preview';
+          preview.textContent = rule.preview;
+          
+          item.appendChild(name);
+          item.appendChild(preview);
+          
+          item.addEventListener('click', () => {
+            applyTransformation(rule, node);
+          });
+          
+          commandsPanel.appendChild(item);
+        });
+      });
+    }
+
+    function applyTransformation(rule, node) {
+      console.log('Applying transformation:', rule.name, 'to node:', node);
+      try {
+        const newNode = rule.apply(node);
+        const newExpr = expressionToString(newNode);
+        
+        // Add to history
+        addToHistory(newExpr, rule.name, newNode);
+        
+        // Show description
+        showDescription(rule);
+        
+        expressionInput.value = newExpr;
+        buildExpression();
+      } catch (error) {
+        showError('Transformation failed: ' + error.message);
+      }
+    }
+
+    function addToHistory(expression, ruleName, node) {
+      // Truncate history if we're not at the end
+      if (currentStateIndex < historyStates.length - 1) {
+        historyStates = historyStates.slice(0, currentStateIndex + 1);
+      }
+      
+      historyStates.push({
+        expression,
+        ruleName,
+        node,
+        timestamp: Date.now()
+      });
+      
+      currentStateIndex = historyStates.length - 1;
+      renderHistory();
+    }
+
+    function renderHistory() {
+      if (historyStates.length === 0) {
+        historyPanel.innerHTML = '<p class="placeholder">Transformation history will appear here</p>';
+        return;
+      }
+      
+      historyPanel.innerHTML = '';
+      
+      historyStates.forEach((state, index) => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        if (index === currentStateIndex) {
+          item.classList.add('active');
+        }
+        
+        const expr = document.createElement('div');
+        expr.className = 'history-expression';
+        expr.textContent = state.expression;
+        
+        const rule = document.createElement('div');
+        rule.className = 'history-rule';
+        rule.textContent = `${index === 0 ? '🎯' : '→'} ${state.ruleName}`;
+        
+        item.appendChild(expr);
+        item.appendChild(rule);
+        
+        item.addEventListener('click', () => {
+          goToHistoryState(index);
+        });
+        
+        historyPanel.appendChild(item);
+      });
+    }
+
+    function goToHistoryState(index) {
+      if (index < 0 || index >= historyStates.length) return;
+      
+      currentStateIndex = index;
+      const state = historyStates[index];
+      
+      expressionInput.value = state.expression;
+      currentNode = state.node;
+      currentExpression = state.expression;
+      
+      renderExpression(state.expression);
+      renderHistory();
+    }
+
+    function showDescription(rule) {
+      const description = ruleDescriptions[rule.id] || 'No description available for this rule.';
+      
+      descriptionPanel.innerHTML = `
+        <p><strong>Rule:</strong> ${rule.name}</p>
+        <p><strong>Category:</strong> ${rule.category}</p>
+        <p><strong>Preview:</strong> <code>${rule.preview}</code></p>
+        <p><strong>Description:</strong> ${description}</p>
+      `;
+    }
+
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.classList.add('show');
+    }
+
+    function hideError() {
+      errorMessage.classList.remove('show');
+    }
+
+    // Auto-build example on load
+    setTimeout(() => {
+      expressionInput.value = '2 + 3 * 4';
+      buildExpression();
+    }, 500);
+  </script>
+</body>
+</html>
