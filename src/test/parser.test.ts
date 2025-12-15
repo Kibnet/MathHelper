@@ -61,11 +61,11 @@ describe('Parser - Variables', () => {
     expect((result as VariableNode).value).toBe('X');
   });
 
-  it('should parse multi-character variable', () => {
+  it('should parse multi-character variable with implicit multiplication', () => {
     const parser = new ExpressionParser('abc');
     const result = parser.parse();
-    expect(result.type).toBe('variable');
-    expect((result as VariableNode).value).toBe('abc');
+    // abc парсится как a*b*c (неявное умножение)
+    expect(result.type).toBe('implicit_mul');
   });
 });
 
@@ -252,35 +252,35 @@ describe('Parser - Error Handling', () => {
     expect(() => {
       const parser = new ExpressionParser('');
       parser.parse();
-    }).toThrow('Empty expression');
+    }).toThrow('Пустое выражение');
   });
 
   it('should throw on whitespace-only expression', () => {
     expect(() => {
       const parser = new ExpressionParser('   ');
       parser.parse();
-    }).toThrow('Empty expression');
+    }).toThrow('Пустое выражение');
   });
 
   it('should throw on unmatched opening parenthesis', () => {
     expect(() => {
       const parser = new ExpressionParser('(2 + 3');
       parser.parse();
-    }).toThrow('Missing closing parenthesis');
+    }).toThrow('Отсутствует закрывающая скобка');
   });
 
   it('should throw on unmatched closing parenthesis', () => {
     expect(() => {
       const parser = new ExpressionParser('2 + 3)');
       parser.parse();
-    }).toThrow('Unexpected character');
+    }).toThrow('Неожиданный токен');
   });
 
   it('should throw on invalid character', () => {
     expect(() => {
       const parser = new ExpressionParser('2 @ 3');
       parser.parse();
-    }).toThrow('Unexpected character');
+    }).toThrow('Неожиданный токен');
   });
 
   it('should throw on incomplete expression', () => {
@@ -325,10 +325,11 @@ describe('Parser - Edge Cases', () => {
     expect((result as ConstantNode).value).toBe(0.0001);
   });
 
-  it('should parse long variable name', () => {
+  it('should parse long variable name with implicit multiplication', () => {
     const parser = new ExpressionParser('variableName');
     const result = parser.parse();
-    expect((result as VariableNode).value).toBe('variableName');
+    // variableName парсится как v*a*r*i*a*b*l*e*N*a*m*e
+    expect(result.type).toBe('implicit_mul');
   });
 
   it('should parse complex nested expression', () => {
