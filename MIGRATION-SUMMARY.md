@@ -46,9 +46,8 @@ src/
 - ❌ `js/core/rules.js`
 - ❌ `js/utils/helpers.js`
 
-### Old Test Files (3 files)
+### Old Test Files (2 files)
 - ❌ `tests/core/parser.test.js`
-- ❌ `tests/test-runner.html`
 - ❌ `test-expression-editor.html`
 
 ### Outdated Documentation (6 files)

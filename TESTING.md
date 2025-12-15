@@ -18,7 +18,6 @@ Comprehensive test suite for the MathHelper Expression Editor.
 
 ```
 src/test/
-├── framework.ts         # Custom test framework (no dependencies)
 ├── parser.test.ts       # Parser module tests
 ├── helpers.test.ts      # Helper utilities tests
 ├── analyzer.test.ts     # Subexpression analyzer tests
@@ -30,21 +29,28 @@ src/test/
 ### Quick Start
 
 ```bash
-# Start Vite dev server
-npm run dev
+# Run tests in watch mode
+npm run test
 
-# Open test runner in browser
-http://localhost:8000/test-runner.html
+# Run tests once
+npm run test:run
+
+# Run tests with UI
+npm run test:ui
+
+# Generate coverage report
+npm run coverage
 ```
 
-### Test Runner Features
+### Test Runner Features (Vitest)
 
-- **Auto-run** - Tests run automatically on page load
-- **Visual Results** - Color-coded pass/fail indicators
-- **Collapsible Suites** - Expand/collapse test groups
-- **Filter Tests** - Show all, only passed, or only failed
+- **Watch Mode** - Automatically re-run tests on file changes
+- **Visual UI** - Interactive browser-based test interface
+- **Fast Execution** - Powered by Vite's HMR
+- **Coverage Reports** - Built-in code coverage
 - **Performance Metrics** - Duration tracking for each test
-- **Error Details** - Full error messages for failed tests
+- **Error Details** - Full stack traces for failed tests
+- **Filter Tests** - Run specific suites or tests
 
 ## 📝 Test Categories
 
@@ -250,12 +256,14 @@ http://localhost:8000/test-runner.html
 
 ## 🎯 Test Framework Features
 
-### Custom Implementation
+### Vitest
 
-Built a lightweight test framework without external dependencies:
+Using Vitest - a blazing fast unit test framework powered by Vite:
 
 ```typescript
-// Simple API
+// Standard Vitest API
+import { describe, it, expect } from 'vitest';
+
 describe('Suite name', () => {
   it('should do something', () => {
     expect(value).toBe(expected);
@@ -365,16 +373,16 @@ interface TestSuite {
 
 ### Adding New Tests
 
-1. Create test file in `src/test/`
-2. Import framework: `import { describe, it, expect } from './framework.js'`
+1. Create test file in `src/test/` with `.test.ts` extension
+2. Import Vitest: `import { describe, it, expect } from 'vitest'`
 3. Write test suites using `describe()` and `it()`
-4. Import in `test-runner.html`
-5. Run and verify
+4. Run tests with `npm run test`
+5. Vitest automatically discovers and runs new tests
 
 ### Example Test
 
 ```typescript
-import { describe, it, expect } from './framework.js';
+import { describe, it, expect } from 'vitest';
 import { ExpressionParser } from '../core/parser.js';
 
 describe('My Feature', () => {
@@ -400,9 +408,10 @@ describe('My Feature', () => {
 - **200+ comprehensive tests** covering all modules
 - **100% code coverage** of critical paths
 - **All edge cases** thoroughly tested
-- **Custom framework** - zero external dependencies
-- **Fast execution** - all tests run in ~50ms
-- **Visual test runner** - interactive UI
+- **Vitest framework** - modern, fast, and powerful
+- **Fast execution** - optimized by Vite
+- **Interactive UI** - browser-based test interface (`npm run test:ui`)
 - **TypeScript native** - full type safety in tests
+- **Watch mode** - instant feedback on code changes
 
 **The test suite ensures the MathHelper Expression Editor is robust, reliable, and production-ready!** 🚀
