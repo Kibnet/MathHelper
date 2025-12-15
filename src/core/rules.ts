@@ -3,7 +3,7 @@
  * Defines all available transformation rules and their applicability
  */
 
-import type { ASTNode, ConstantNode, OperatorNode, TransformationRule } from '../types/index.js';
+import type { ASTNode, ConstantNode, OperatorNode, TransformationRule, ImplicitMulNode } from '../types/index.js';
 import { generateId } from './parser.js';
 
 /**
@@ -188,6 +188,50 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
       preview: 'a+b → b+a',
       apply: applyCommutative
     });
+  }
+  
+  // === NOTATION: Implicit/Explicit Multiplication ===
+  
+  // Раскрытие неявного умножения (2a → 2*a)
+  if (node.type === 'implicit_mul') {
+    rules.push({
+      id: 'expand_implicit_mul',
+      name: '→ Expand Implicit *',
+      category: '6. Notation',
+      preview: '2a → 2*a',
+      apply: expandImplicitMultiplication
+    });
+  }
+  
+  // Сворачивание явного умножения (2*a → 2a)
+  if (node.type === 'operator' && node.value === '*') {
+    // Проверяем, можно ли свернуть в неявное умножение
+    const canCollapse = (
+      // Число * переменная
+      (node.children[0].type === 'constant' && node.children[1].type === 'variable') ||
+      // Переменная * переменная
+      (node.children[0].type === 'variable' && node.children[1].type === 'variable') ||
+      // Переменная * группа
+      (node.children[0].type === 'variable' && node.children[1].type === 'group') ||
+      // Число * группа
+      (node.children[0].type === 'constant' && node.children[1].type === 'group') ||
+      // Группа * переменная
+      (node.children[0].type === 'group' && node.children[1].type === 'variable') ||
+      // Группа * число
+      (node.children[0].type === 'group' && node.children[1].type === 'constant') ||
+      // Группа * группа
+      (node.children[0].type === 'group' && node.children[1].type === 'group')
+    );
+    
+    if (canCollapse) {
+      rules.push({
+        id: 'collapse_to_implicit_mul',
+        name: '→ Collapse to Implicit *',
+        category: '6. Notation',
+        preview: '2*a → 2a',
+        apply: collapseToImplicitMultiplication
+      });
+    }
   }
   
   // === PRIORITY 5: WRAPPING ===
@@ -429,5 +473,33 @@ function addZero(node: ASTNode): OperatorNode {
       node,
       { id: generateId(), type: 'constant', value: 0 }
     ]
+  };
+}
+
+// === Implicit Multiplication Transformations ===
+
+/**
+ * Раскрывает неявное умножение в явное (2a → 2*a)
+ */
+function expandImplicitMultiplication(node: ASTNode): OperatorNode {
+  const n = node as ImplicitMulNode;
+  return {
+    id: generateId(),
+    type: 'operator',
+    value: '*',
+    children: [n.children[0], n.children[1]]
+  };
+}
+
+/**
+ * Сворачивает явное умножение в неявное (2*a → 2a)
+ */
+function collapseToImplicitMultiplication(node: ASTNode): ImplicitMulNode {
+  const n = node as OperatorNode;
+  return {
+    id: generateId(),
+    type: 'implicit_mul',
+    value: '*',
+    children: [n.children[0], n.children[1]]
   };
 }

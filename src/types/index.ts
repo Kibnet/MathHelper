@@ -57,7 +57,8 @@ export type RuleCategory =
   | '2. Simplification'
   | '3. Transformation'
   | '4. Rearrangement'
-  | '5. Wrapping';
+  | '5. Wrapping'
+  | '6. Notation';
 
 export interface TransformationRule {
   id: string;
