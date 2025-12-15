@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.6",
+    "@vitest/coverage-v8": "^4.0.15",
     "@vitest/ui": "^4.0.15",
     "jsdom": "^27.3.0",
     "typescript": "^5.3.3",

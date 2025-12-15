@@ -12,7 +12,9 @@ import {
   findNodeById,
   getDepth,
   countNodes,
-  getAllNodeIds
+  getAllNodeIds,
+  getLeafNodes,
+  nodesEqual
 } from '../utils/helpers.js';
 import type { ConstantNode, OperatorNode } from '../types/index.js';
 
@@ -408,5 +410,180 @@ describe('Helpers - Edge Cases', () => {
     const cloned = cloneNode(original);
     
     expect(expressionToString(cloned)).toBe(expressionToString(original));
+  });
+});
+
+describe('Helpers - getLeafNodes', () => {
+  it('should return constant as leaf', () => {
+    const parser = new ExpressionParser('42');
+    const tree = parser.parse();
+    const leaves = getLeafNodes(tree);
+    
+    expect(leaves).toHaveLength(1);
+    expect(leaves[0].type).toBe('constant');
+  });
+
+  it('should return variable as leaf', () => {
+    const parser = new ExpressionParser('x');
+    const tree = parser.parse();
+    const leaves = getLeafNodes(tree);
+    
+    expect(leaves).toHaveLength(1);
+    expect(leaves[0].type).toBe('variable');
+  });
+
+  it('should return all leaves from binary operation', () => {
+    const parser = new ExpressionParser('2 + 3');
+    const tree = parser.parse();
+    const leaves = getLeafNodes(tree);
+    
+    expect(leaves).toHaveLength(2);
+    expect((leaves[0] as ConstantNode).value).toBe(2);
+    expect((leaves[1] as ConstantNode).value).toBe(3);
+  });
+
+  it('should return all leaves from complex expression', () => {
+    const parser = new ExpressionParser('(a + b) * c');
+    const tree = parser.parse();
+    const leaves = getLeafNodes(tree);
+    
+    expect(leaves).toHaveLength(3);
+  });
+
+  it('should handle unary operations', () => {
+    const parser = new ExpressionParser('-x');
+    const tree = parser.parse();
+    const leaves = getLeafNodes(tree);
+    
+    expect(leaves).toHaveLength(1);
+    expect(leaves[0].type).toBe('variable');
+  });
+
+  it('should handle group nodes', () => {
+    const parser = new ExpressionParser('(5)');
+    const tree = parser.parse();
+    const leaves = getLeafNodes(tree);
+    
+    expect(leaves).toHaveLength(1);
+    expect((leaves[0] as ConstantNode).value).toBe(5);
+  });
+});
+
+describe('Helpers - nodesEqual', () => {
+  it('should return true for equal constants', () => {
+    const parser1 = new ExpressionParser('42');
+    const parser2 = new ExpressionParser('42');
+    const node1 = parser1.parse();
+    const node2 = parser2.parse();
+    
+    expect(nodesEqual(node1, node2)).toBe(true);
+  });
+
+  it('should return false for different constants', () => {
+    const parser1 = new ExpressionParser('42');
+    const parser2 = new ExpressionParser('43');
+    const node1 = parser1.parse();
+    const node2 = parser2.parse();
+    
+    expect(nodesEqual(node1, node2)).toBe(false);
+  });
+
+  it('should return true for equal variables', () => {
+    const parser1 = new ExpressionParser('x');
+    const parser2 = new ExpressionParser('x');
+    const node1 = parser1.parse();
+    const node2 = parser2.parse();
+    
+    expect(nodesEqual(node1, node2)).toBe(true);
+  });
+
+  it('should return false for different variables', () => {
+    const parser1 = new ExpressionParser('x');
+    const parser2 = new ExpressionParser('y');
+    const node1 = parser1.parse();
+    const node2 = parser2.parse();
+    
+    expect(nodesEqual(node1, node2)).toBe(false);
+  });
+
+  it('should return true for equal operators', () => {
+    const parser1 = new ExpressionParser('2 + 3');
+    const parser2 = new ExpressionParser('2 + 3');
+    const node1 = parser1.parse();
+    const node2 = parser2.parse();
+    
+    expect(nodesEqual(node1, node2)).toBe(true);
+  });
+
+  it('should return false for different operators', () => {
+    const parser1 = new ExpressionParser('2 + 3');
+    const parser2 = new ExpressionParser('2 * 3');
+    const node1 = parser1.parse();
+    const node2 = parser2.parse();
+    
+    expect(nodesEqual(node1, node2)).toBe(false);
+  });
+
+  it('should return false for different operator children', () => {
+    const parser1 = new ExpressionParser('2 + 3');
+    const parser2 = new ExpressionParser('2 + 4');
+    const node1 = parser1.parse();
+    const node2 = parser2.parse();
+    
+    expect(nodesEqual(node1, node2)).toBe(false);
+  });
+
+  it('should return true for equal unary nodes', () => {
+    const parser1 = new ExpressionParser('-5');
+    const parser2 = new ExpressionParser('-5');
+    const node1 = parser1.parse();
+    const node2 = parser2.parse();
+    
+    expect(nodesEqual(node1, node2)).toBe(true);
+  });
+
+  it('should return false for different unary children', () => {
+    const parser1 = new ExpressionParser('-5');
+    const parser2 = new ExpressionParser('-6');
+    const node1 = parser1.parse();
+    const node2 = parser2.parse();
+    
+    expect(nodesEqual(node1, node2)).toBe(false);
+  });
+
+  it('should return true for equal group nodes', () => {
+    const parser1 = new ExpressionParser('(5)');
+    const parser2 = new ExpressionParser('(5)');
+    const node1 = parser1.parse();
+    const node2 = parser2.parse();
+    
+    expect(nodesEqual(node1, node2)).toBe(true);
+  });
+
+  it('should return false for different types', () => {
+    const parser1 = new ExpressionParser('5');
+    const parser2 = new ExpressionParser('x');
+    const node1 = parser1.parse();
+    const node2 = parser2.parse();
+    
+    expect(nodesEqual(node1, node2)).toBe(false);
+  });
+
+  it('should handle complex nested equality', () => {
+    const parser1 = new ExpressionParser('(2 + 3) * 4');
+    const parser2 = new ExpressionParser('(2 + 3) * 4');
+    const node1 = parser1.parse();
+    const node2 = parser2.parse();
+    
+    expect(nodesEqual(node1, node2)).toBe(true);
+  });
+
+  it('should detect inequality in nested structures', () => {
+    const parser1 = new ExpressionParser('(2 + 3) * 4');
+    const parser2 = new ExpressionParser('(2 + 3) * 5');
+    const node1 = parser1.parse();
+    const node2 = parser2.parse();
+    
+    expect(nodesEqual(node1, node2)).toBe(false);
   });
 });
