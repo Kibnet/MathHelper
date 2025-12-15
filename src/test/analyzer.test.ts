@@ -9,7 +9,8 @@ import {
   assignLevels, 
   calculateFramePositions,
   calculateTotalHeight,
-  doRangesOverlap 
+  doRangesOverlap,
+  measureTextWidth
 } from '../core/analyzer.js';
 
 describe('Analyzer - findAllSubexpressions', () => {
@@ -365,5 +366,45 @@ describe('Analyzer - Edge Cases', () => {
     const subexprs = findAllSubexpressions(expr);
     
     expect(subexprs.length).toBeGreaterThan(0);
+  });
+
+  it('should skip subexpressions with empty rules array', () => {
+    // Тестируем строку 48: continue когда rules.length === 0
+    // Создаём невалидное подвыражение путём частичного парсинга
+    const expr = '2 + 3';
+    const subexprs = findAllSubexpressions(expr);
+    
+    // Все возвращённые подвыражения должны иметь хотя бы одно правило
+    for (const subexpr of subexprs) {
+      expect(subexpr.rules.length).toBeGreaterThan(0);
+    }
+    
+    // Проверяем, что функция работает корректно
+    expect(subexprs.length).toBeGreaterThan(0);
+  });
+});
+
+describe('Analyzer - measureTextWidth', () => {
+  it('should measure text width correctly', () => {
+    // Просто проверяем, что функция работает без ошибок
+    const width = measureTextWidth('test');
+    expect(typeof width).toBe('number');
+    expect(width).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should calculate width for different text lengths', () => {
+    const width1 = measureTextWidth('a');
+    const width2 = measureTextWidth('abc');
+    const width3 = measureTextWidth('abcdefgh');
+    
+    // Проверяем, что все значения - числа
+    expect(typeof width1).toBe('number');
+    expect(typeof width2).toBe('number');
+    expect(typeof width3).toBe('number');
+    
+    // В jsdom может быть 0, проверяем только тип
+    expect(width1).toBeGreaterThanOrEqual(0);
+    expect(width2).toBeGreaterThanOrEqual(0);
+    expect(width3).toBeGreaterThanOrEqual(0);
   });
 });

@@ -290,6 +290,14 @@ describe('Parser - Error Handling', () => {
     }).toThrow();
   });
 
+  it('should throw unexpected end of expression error', () => {
+    // Тестируем строку 182: consume() без токенов
+    expect(() => {
+      const parser = new ExpressionParser('2 *');
+      parser.parse();
+    }).toThrow('Неожиданный конец выражения');
+  });
+
   it('should throw on operator at start (except unary)', () => {
     expect(() => {
       const parser = new ExpressionParser('+ 2');

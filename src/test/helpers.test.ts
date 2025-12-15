@@ -78,6 +78,36 @@ describe('Helpers - expressionToString', () => {
     const node = parser.parse();
     expect(expressionToString(node)).toBe('3.14 + 2.71');
   });
+
+  it('should handle implicit_mul in expressionToString', () => {
+    const parser = new ExpressionParser('2a');
+    const tree = parser.parse();
+    
+    const result = expressionToString(tree);
+    expect(result).toBe('2a');
+  });
+
+  it('should handle unknown node type gracefully', () => {
+    const invalidNode = { id: '1', type: 'unknown', value: 'x' } as any;
+    const result = expressionToString(invalidNode);
+    expect(result).toBe('');
+  });
+
+  it('should wrap unary minus around operator child with parentheses', () => {
+    // Создаём вручную unary узел с operator child
+    const parser = new ExpressionParser('2 + 3');
+    const operatorNode = parser.parse();
+    
+    const unaryNode: any = {
+      id: 'test_unary',
+      type: 'unary',
+      value: '-',
+      children: [operatorNode]
+    };
+    
+    const result = expressionToString(unaryNode);
+    expect(result).toBe('-(2 + 3)');
+  });
 });
 
 describe('Helpers - cloneNode', () => {
@@ -585,5 +615,39 @@ describe('Helpers - nodesEqual', () => {
     const node2 = parser2.parse();
     
     expect(nodesEqual(node1, node2)).toBe(false);
+  });
+
+  it('should return false for mismatched node types', () => {
+    const invalidNode1 = { id: '1', type: 'custom_type_1', value: 'x' } as any;
+    const invalidNode2 = { id: '2', type: 'custom_type_2', value: 'y' } as any;
+    
+    expect(nodesEqual(invalidNode1, invalidNode2)).toBe(false);
+  });
+
+  it('should return false for same custom type not handled by nodesEqual', () => {
+    // Тестируем строку 167: return false для необрабатываемого типа
+    const customNode1 = { id: '1', type: 'future_type', value: 'a', children: [] } as any;
+    const customNode2 = { id: '2', type: 'future_type', value: 'b', children: [] } as any;
+    
+    // Оба узла одного типа, но тип не обрабатывается ни в одной из веток
+    expect(nodesEqual(customNode1, customNode2)).toBe(false);
+  });
+});
+
+describe('Helpers - cloneNode edge cases', () => {
+  it('should return node as is for unknown type', () => {
+    const unknownNode = { id: '1', type: 'unknown_type', value: 'test' } as any;
+    const cloned = cloneNode(unknownNode);
+    
+    expect(cloned).toBe(unknownNode);
+  });
+});
+
+describe('Helpers - getLeafNodes edge cases', () => {
+  it('should return empty array for node without children', () => {
+    const nodeWithoutChildren = { id: '1', type: 'custom', value: 'test' } as any;
+    const leaves = getLeafNodes(nodeWithoutChildren);
+    
+    expect(leaves).toEqual([]);
   });
 });
