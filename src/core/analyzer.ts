@@ -3,12 +3,77 @@
  * Находит все валидные подвыражения и определяет расположение фреймов
  */
 
-import type { Subexpression, SubexpressionPosition, LayoutConfig } from '../types/index.js';
+import type { Subexpression, SubexpressionPosition, LayoutConfig, ASTNode } from '../types/index.js';
 import { ExpressionParser } from './parser.js';
 import { getApplicableRules } from './rules.js';
+import { expressionToString } from '../utils/helpers.js';
+
+/**
+ * Извлечь все узлы из AST дерева с их текстовыми позициями
+ */
+export function extractNodesFromAST(rootNode: ASTNode, fullExpressionString: string): Subexpression[] {
+  const subexpressions: Subexpression[] = [];
+  const nodeTextMap = new Map<string, string>();
+  
+  // Рекурсивно обходим дерево и строим карту узлов
+  function buildNodeTextMap(node: ASTNode): void {
+    const text = expressionToString(node);
+    nodeTextMap.set(node.id, text);
+    
+    if ('children' in node && node.children) {
+      node.children.forEach(child => buildNodeTextMap(child));
+    }
+  }
+  
+  buildNodeTextMap(rootNode);
+  
+  // Для каждого узла находим его позицию в полном выражении
+  function findNodePositions(node: ASTNode, currentPos: number = 0): void {
+    const nodeText = nodeTextMap.get(node.id) || '';
+    const rules = getApplicableRules(node);
+    
+    // Ищем позицию этого узла в оставшейся части выражения
+    const index = fullExpressionString.indexOf(nodeText, currentPos);
+    
+    if (index !== -1 && rules.length > 0) {
+      subexpressions.push({
+        text: nodeText,
+        start: index,
+        end: index + nodeText.length,
+        node: node,
+        length: nodeText.length,
+        rules: rules
+      });
+    }
+    
+    // Рекурсивно обрабатываем дочерние узлы
+    if ('children' in node && node.children) {
+      let childPos = index !== -1 ? index : currentPos;
+      node.children.forEach(child => {
+        findNodePositions(child, childPos);
+      });
+    }
+  }
+  
+  findNodePositions(rootNode);
+  
+  // Удаляем дубликаты по ID узла
+  const uniqueSubexpressions: Subexpression[] = [];
+  const seenIds = new Set<string>();
+  
+  for (const subexpr of subexpressions) {
+    if (!seenIds.has(subexpr.node.id)) {
+      seenIds.add(subexpr.node.id);
+      uniqueSubexpressions.push(subexpr);
+    }
+  }
+  
+  return uniqueSubexpressions;
+}
 
 /**
  * Найти все валидные подвыражения в строке выражения
+ * @deprecated Используйте extractNodesFromAST для работы с основным деревом
  */
 export function findAllSubexpressions(exprString: string): Subexpression[] {
   const subexpressions: Subexpression[] = [];

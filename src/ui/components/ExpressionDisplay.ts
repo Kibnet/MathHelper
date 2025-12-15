@@ -2,7 +2,7 @@
  * Компонент отображения выражения с токенизацией и фреймами подвыражений
  */
 import { tokenize, getTokenTypeName, getTokenColor } from '../../utils/tokenizer.js';
-import { findAllSubexpressions, assignLevels, calculateFramePositions, calculateTotalHeight } from '../../core/analyzer.js';
+import { extractNodesFromAST, assignLevels, calculateFramePositions, calculateTotalHeight } from '../../core/analyzer.js';
 import { getApplicableRules } from '../../core/rules.js';
 import type { ASTNode } from '../../types/index.js';
 
@@ -26,7 +26,7 @@ export class ExpressionDisplay {
   /**
    * Отображает выражение с подсветкой токенов и фреймами
    */
-  render(exprString: string): void {
+  render(exprString: string, rootNode: ASTNode): void {
     this.container.innerHTML = '';
     
     // Создаём текстовый элемент
@@ -67,8 +67,8 @@ export class ExpressionDisplay {
     
     this.container.appendChild(textDiv);
     
-    // Создаём фреймы
-    this.createFrames(exprString, rangesDiv, highlightDiv);
+    // Создаём фреймы на основе AST дерева
+    this.createFrames(exprString, rootNode, rangesDiv, highlightDiv);
   }
 
   /**
@@ -79,10 +79,10 @@ export class ExpressionDisplay {
   }
 
   /**
-   * Создаёт фреймы подвыражений
+   * Создаёт фреймы подвыражений на основе AST дерева
    */
-  private createFrames(exprString: string, rangesContainer: HTMLElement, highlightElement: HTMLElement): void {
-    const subexpressions = findAllSubexpressions(exprString);
+  private createFrames(exprString: string, rootNode: ASTNode, rangesContainer: HTMLElement, highlightElement: HTMLElement): void {
+    const subexpressions = extractNodesFromAST(rootNode, exprString);
     
     if (subexpressions.length === 0) {
       console.log('No valid subexpressions found');
@@ -109,7 +109,7 @@ export class ExpressionDisplay {
     // Создаём элементы фреймов
     positions.forEach(pos => {
       const frame = document.createElement('div');
-      frame.className = `expression-range level-${pos.level % 8}`;
+      frame.className = `expression-range level-${(pos.level || 0) % 8}`;
       
       frame.style.left = pos.left + 'px';
       frame.style.width = pos.width + 'px';
@@ -119,6 +119,13 @@ export class ExpressionDisplay {
       frame.dataset.text = pos.text;
       frame.dataset.start = pos.start.toString();
       frame.dataset.end = pos.end.toString();
+      frame.dataset.nodeId = pos.node.id;
+      
+      // Создаём метку с текстом подвыражения внутри рамки
+      const label = document.createElement('span');
+      label.className = 'frame-label';
+      label.textContent = pos.text;
+      frame.appendChild(label);
       
       // Наведение для подсветки
       frame.addEventListener('mouseenter', () => {

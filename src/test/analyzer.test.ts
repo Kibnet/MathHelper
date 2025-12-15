@@ -5,6 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { 
+  extractNodesFromAST,
   findAllSubexpressions, 
   assignLevels, 
   calculateFramePositions,
@@ -12,6 +13,7 @@ import {
   doRangesOverlap,
   measureTextWidth
 } from '../core/analyzer.js';
+import { ExpressionParser } from '../core/parser.js';
 
 describe('Analyzer - findAllSubexpressions', () => {
   it('should find single constant', () => {
@@ -406,5 +408,112 @@ describe('Analyzer - measureTextWidth', () => {
     expect(width1).toBeGreaterThanOrEqual(0);
     expect(width2).toBeGreaterThanOrEqual(0);
     expect(width3).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('Analyzer - extractNodesFromAST', () => {
+  it('should extract all nodes from simple expression', () => {
+    const parser = new ExpressionParser('2 + 3');
+    const ast = parser.parse();
+    const exprString = '2 + 3';
+    
+    const subexprs = extractNodesFromAST(ast, exprString);
+    
+    // Должны найти узлы: 2, 3, 2 + 3
+    expect(subexprs.length).toBeGreaterThan(0);
+    
+    const fullExpr = subexprs.find(s => s.text === '2 + 3');
+    expect(fullExpr).toBeTruthy();
+    expect(fullExpr?.node).toBe(ast); // Корневой узел должен совпадать
+  });
+
+  it('should extract nodes with correct positions', () => {
+    const parser = new ExpressionParser('x + y');
+    const ast = parser.parse();
+    const exprString = 'x + y';
+    
+    const subexprs = extractNodesFromAST(ast, exprString);
+    
+    const xNode = subexprs.find(s => s.text === 'x');
+    expect(xNode).toBeTruthy();
+    expect(xNode?.start).toBe(0);
+    expect(xNode?.end).toBe(1);
+    
+    const yNode = subexprs.find(s => s.text === 'y');
+    expect(yNode).toBeTruthy();
+    expect(yNode?.start).toBe(4);
+    expect(yNode?.end).toBe(5);
+  });
+
+  it('should preserve node references from AST', () => {
+    const parser = new ExpressionParser('a + b');
+    const ast = parser.parse();
+    const exprString = 'a + b';
+    
+    const subexprs = extractNodesFromAST(ast, exprString);
+    
+    // Все узлы должны быть из оригинального дерева
+    for (const subexpr of subexprs) {
+      expect(subexpr.node.id).toBeTruthy();
+      expect(typeof subexpr.node.id).toBe('string');
+    }
+  });
+
+  it('should handle complex nested expressions', () => {
+    const parser = new ExpressionParser('(2 + 3) * 4');
+    const ast = parser.parse();
+    const exprString = '(2 + 3) * 4';
+    
+    const subexprs = extractNodesFromAST(ast, exprString);
+    
+    expect(subexprs.length).toBeGreaterThan(0);
+    
+    const fullExpr = subexprs.find(s => s.text === '(2 + 3) * 4');
+    expect(fullExpr).toBeTruthy();
+    
+    const grouped = subexprs.find(s => s.text === '(2 + 3)');
+    expect(grouped).toBeTruthy();
+  });
+
+  it('should attach applicable rules to each node', () => {
+    const parser = new ExpressionParser('2 + 3');
+    const ast = parser.parse();
+    const exprString = '2 + 3';
+    
+    const subexprs = extractNodesFromAST(ast, exprString);
+    
+    for (const subexpr of subexprs) {
+      expect(subexpr.rules).toBeTruthy();
+      expect(Array.isArray(subexpr.rules)).toBeTruthy();
+      expect(subexpr.rules.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('should handle implicit multiplication', () => {
+    const parser = new ExpressionParser('2x');
+    const ast = parser.parse();
+    const exprString = '2x';
+    
+    const subexprs = extractNodesFromAST(ast, exprString);
+    
+    // Должны найти узлы для неявного умножения
+    expect(subexprs.length).toBeGreaterThan(0);
+    
+    const fullExpr = subexprs.find(s => s.text === '2x');
+    expect(fullExpr).toBeTruthy();
+  });
+
+  it('should not include duplicate nodes', () => {
+    const parser = new ExpressionParser('a + b + c');
+    const ast = parser.parse();
+    const exprString = 'a + b + c';
+    
+    const subexprs = extractNodesFromAST(ast, exprString);
+    
+    // Проверяем уникальность по ID узлов
+    const nodeIds = subexprs.map(s => s.node.id);
+    const uniqueIds = new Set(nodeIds);
+    
+    expect(nodeIds.length).toBe(uniqueIds.size);
   });
 });

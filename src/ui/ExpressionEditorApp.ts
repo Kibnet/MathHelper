@@ -3,7 +3,7 @@
  * Управляет всеми компонентами и координирует их взаимодействие
  */
 import { ExpressionParser, resetIdCounter } from '../core/parser.js';
-import { expressionToString } from '../utils/helpers.js';
+import { expressionToString, replaceNode } from '../utils/helpers.js';
 import { ExpressionDisplay } from './components/ExpressionDisplay.js';
 import { CommandPanel } from './components/CommandPanel.js';
 import { HistoryPanel } from './components/HistoryPanel.js';
@@ -103,8 +103,8 @@ export class ExpressionEditorApp {
       // Добавляем в историю
       this.historyPanel.addState(exprString, 'Исходное выражение', ast);
       
-      // Отображаем выражение
-      this.expressionDisplay.render(exprString);
+      // Отображаем выражение с AST деревом
+      this.expressionDisplay.render(exprString, ast);
       this.hideError();
     } catch (error) {
       this.showError((error as Error).message);
@@ -143,18 +143,34 @@ export class ExpressionEditorApp {
   private handleCommandClick(rule: any, node: ASTNode): void {
     console.log('Applying transformation:', rule.name, 'to node:', node);
     try {
-      const newNode = rule.apply(node);
-      const newExpr = expressionToString(newNode);
+      if (!this.currentNode) {
+        this.showError('Ошибка: нет текущего выражения');
+        return;
+      }
+      
+      // Применяем преобразование к выбранному узлу
+      const transformedNode = rule.apply(node);
+      
+      // Заменяем узел в основном дереве
+      const newRootNode = replaceNode(this.currentNode, node.id, transformedNode);
+      const newExpr = expressionToString(newRootNode);
+      
+      // Обновляем состояние
+      this.currentNode = newRootNode;
+      this.currentExpression = newExpr;
       
       // Добавляем в историю
-      this.historyPanel.addState(newExpr, rule.name, newNode);
+      this.historyPanel.addState(newExpr, rule.name, newRootNode);
       
       // Показываем описание
       this.descriptionPanel.showRule(rule);
       
-      // Обновляем выражение
+      // Обновляем отображение
       this.expressionInput.value = newExpr;
-      this.buildExpression();
+      this.expressionDisplay.render(newExpr, newRootNode);
+      
+      // Очищаем панель команд
+      this.commandPanel.clear();
     } catch (error) {
       this.showError('Ошибка преобразования: ' + (error as Error).message);
     }
@@ -172,7 +188,7 @@ export class ExpressionEditorApp {
     this.currentNode = state.node;
     this.currentExpression = state.expression;
     
-    this.expressionDisplay.render(state.expression);
+    this.expressionDisplay.render(state.expression, state.node);
   }
 
   /**
