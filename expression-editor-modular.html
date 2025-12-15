@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Expression Editor - Modular Version</title>
+  <title>Преобразователь выражений</title>
   <link rel="stylesheet" href="styles.css">
   <style>
     /* Inline styles from original - will extract to styles.css later */
@@ -471,16 +471,15 @@
 </head>
 <body>
   <div class="app-header">
-    <h1>🧮 Expression Editor <span class="version-badge">✨ Modular</span></h1>
-    <p class="subtitle">Modular Architecture with ES6 Modules</p>
+    <h1>🧮 Преобразователь выражений</h1>
   </div>
 
   <div class="app-layout">
     <!-- Left Panel: Commands -->
     <div class="left-panel">
-      <h3>⚡ Available Commands</h3>
+      <h3>⚡ Доступные команды</h3>
       <div id="commandsPanel" class="commands-list">
-        <p class="placeholder">Select a frame to see transformations</p>
+        <p class="placeholder">Выберите фрейм для просмотра преобразований</p>
       </div>
     </div>
 
@@ -491,11 +490,11 @@
           <input 
             type="text" 
             id="expressionInput" 
-            placeholder="Enter expression: 2 * (a + 3) - b"
+            placeholder="Введите выражение: 2 * (a + 3) - b"
             autocomplete="off"
           >
-          <button id="buildBtn">Build</button>
-          <button id="clearBtn" class="secondary">Clear</button>
+          <button id="buildBtn">Построить</button>
+          <button id="clearBtn" class="secondary">Очистить</button>
         </div>
         <div class="error-message" id="errorMessage"></div>
       </div>
@@ -504,10 +503,10 @@
         <div class="expression-display">
           <div id="expressionContainer">
             <p class="placeholder">
-              Enter an expression and click "Build"<br><br>
-              • Colored frames show subexpressions<br>
-              • Click frame → see commands<br>
-              • Hover → highlight text
+              Введите выражение и нажмите "Построить"<br><br>
+              • Цветные фреймы показывают подвыражения<br>
+              • Клик на фрейм → показать команды<br>
+              • Наведение → подсветка текста
             </p>
           </div>
         </div>
@@ -517,16 +516,16 @@
     <!-- Right Panel: History + Description -->
     <div class="right-panel">
       <div class="history-section">
-        <h3>📜 History</h3>
+        <h3>📜 История</h3>
         <div id="historyPanel">
-          <p class="placeholder">Transformation history will appear here</p>
+          <p class="placeholder">История преобразований появится здесь</p>
         </div>
       </div>
 
       <div class="description-section">
-        <h3>📖 Rule Explanation</h3>
+        <h3>📖 Описание правила</h3>
         <div id="descriptionPanel" class="description-content">
-          <p class="placeholder">Select a transformation to see explanation</p>
+          <p class="placeholder">Выберите преобразование для просмотра описания</p>
         </div>
       </div>
     </div>
@@ -551,27 +550,27 @@
     let historyStates = [];
     let currentStateIndex = -1;
 
-    // Rule descriptions
+    // Описания правил
     const ruleDescriptions = {
-      'eval_mul': 'Evaluates multiplication of two constant numbers, replacing the expression with the computed result.',
-      'eval_div': 'Evaluates division of two constant numbers, replacing the expression with the computed result.',
-      'eval_add_sub': 'Evaluates addition or subtraction of two constant numbers, replacing the expression with the computed result.',
-      'remove_mult_one': 'Removes multiplication by 1, as multiplying any expression by 1 yields the same expression (identity property).',
-      'simplify_mult_zero': 'Simplifies multiplication by 0 to 0, as any expression multiplied by 0 equals 0.',
-      'remove_div_one': 'Removes division by 1, as dividing any expression by 1 yields the same expression.',
-      'remove_add_zero': 'Removes addition of 0, as adding 0 to any expression yields the same expression (identity property).',
-      'remove_sub_zero': 'Removes subtraction of 0, as subtracting 0 from any expression yields the same expression.',
-      'double_negation': 'Removes double negation, as negating an expression twice yields the original expression.',
-      'remove_parens': 'Removes unnecessary parentheses around non-operator expressions.',
-      'distributive_forward': 'Expands multiplication over addition/subtraction using the distributive property: a*(b+c) = a*b + a*c',
-      'distributive_forward_left': 'Expands multiplication over addition/subtraction using the distributive property: (a+b)*c = a*c + b*c',
-      'commutative_mul': 'Swaps the operands of multiplication, using the commutative property: a*b = b*a',
-      'commutative_add': 'Swaps the operands of addition, using the commutative property: a+b = b+a',
-      'add_parens': 'Wraps the expression in parentheses for grouping.',
-      'add_double_neg': 'Applies double negation to the expression.',
-      'multiply_by_one': 'Multiplies the expression by 1 (identity transformation).',
-      'divide_by_one': 'Divides the expression by 1 (identity transformation).',
-      'add_zero': 'Adds 0 to the expression (identity transformation).',
+      'eval_mul': 'Вычисляет произведение двух числовых констант, заменяя выражение результатом.',
+      'eval_div': 'Вычисляет деление двух числовых констант, заменяя выражение результатом.',
+      'eval_add_sub': 'Вычисляет сумму или разность двух числовых констант, заменяя выражение результатом.',
+      'remove_mult_one': 'Убирает умножение на 1, так как умножение любого выражения на 1 даёт то же выражение (свойство идентичности).',
+      'simplify_mult_zero': 'Упрощает умножение на 0 до 0, так как любое выражение, умноженное на 0, равно 0.',
+      'remove_div_one': 'Убирает деление на 1, так как деление любого выражения на 1 даёт то же выражение.',
+      'remove_add_zero': 'Убирает сложение с 0, так как прибавление 0 к любому выражению даёт то же выражение (свойство идентичности).',
+      'remove_sub_zero': 'Убирает вычитание 0, так как вычитание 0 из любого выражения даёт то же выражение.',
+      'double_negation': 'Убирает двойное отрицание, так как двойное отрицание выражения даёт исходное выражение.',
+      'remove_parens': 'Убирает ненужные скобки вокруг не-операторных выражений.',
+      'distributive_forward': 'Раскрывает умножение на сумму/разность, используя распределительное свойство: a*(b+c) = a*b + a*c',
+      'distributive_forward_left': 'Раскрывает умножение на сумму/разность, используя распределительное свойство: (a+b)*c = a*c + b*c',
+      'commutative_mul': 'Меняет местами операнды умножения, используя свойство коммутативности: a*b = b*a',
+      'commutative_add': 'Меняет местами операнды сложения, используя свойство коммутативности: a+b = b+a',
+      'add_parens': 'Оборачивает выражение в скобки для группировки.',
+      'add_double_neg': 'Применяет двойное отрицание к выражению.',
+      'multiply_by_one': 'Умножает выражение на 1 (тождественное преобразование).',
+      'divide_by_one': 'Делит выражение на 1 (тождественное преобразование).',
+      'add_zero': 'Прибавляет 0 к выражению (тождественное преобразование).',
       'expand_implicit_mul': 'Раскрывает неявное умножение, превращая его в явный оператор * (2a → 2*a, abc → a*b*c)',
       'collapse_to_implicit_mul': 'Сворачивает явное умножение в неявное, убирая оператор * (2*a → 2a, a*b*c → abc)'
     };
@@ -594,10 +593,10 @@
 
     clearBtn.addEventListener('click', () => {
       expressionInput.value = '';
-      expressionContainer.innerHTML = '<p class="placeholder">Enter an expression to get started</p>';
-      commandsPanel.innerHTML = '<p class="placeholder">Select a frame to see transformations</p>';
-      historyPanel.innerHTML = '<p class="placeholder">Transformation history will appear here</p>';
-      descriptionPanel.innerHTML = '<p class="placeholder">Select a transformation to see detailed explanation</p>';
+      expressionContainer.innerHTML = '<p class="placeholder">Введите выражение для начала работы</p>';
+      commandsPanel.innerHTML = '<p class="placeholder">Выберите фрейм для просмотра преобразований</p>';
+      historyPanel.innerHTML = '<p class="placeholder">История преобразований появится здесь</p>';
+      descriptionPanel.innerHTML = '<p class="placeholder">Выберите преобразование для просмотра подробного описания</p>';
       errorMessage.classList.remove('show');
       currentExpression = null;
       currentNode = null;
@@ -609,7 +608,7 @@
       const input = expressionInput.value.trim();
       
       if (!input) {
-        showError('Please enter an expression');
+        showError('Пожалуйста, введите выражение');
         return;
       }
 
@@ -622,8 +621,8 @@
         const exprString = expressionToString(ast);
         currentExpression = exprString;
         
-        // Add to history
-        addToHistory(exprString, 'Initial expression', ast);
+        // Добавляем в историю
+        addToHistory(exprString, 'Исходное выражение', ast);
         
         renderExpression(exprString);
         hideError();
@@ -635,7 +634,7 @@
     function renderExpression(exprString) {
       expressionContainer.innerHTML = '';
       
-      // Create text element
+      // Создаём текстовый элемент
       const textDiv = document.createElement('div');
       textDiv.className = 'expression-text';
       textDiv.id = 'expressionText';
@@ -643,7 +642,7 @@
       // Токенизация выражения
       const tokens = tokenize(exprString);
       
-      // Создаем HTML с токенами
+      // Создаём HTML с токенами
       tokens.forEach(token => {
         const tokenSpan = document.createElement('span');
         tokenSpan.className = 'token';
@@ -659,13 +658,13 @@
         textDiv.appendChild(tokenSpan);
       });
       
-      // Create highlight element
+      // Создаём элемент подсветки
       const highlightDiv = document.createElement('div');
       highlightDiv.className = 'expression-highlight';
       highlightDiv.id = 'expressionHighlight';
       textDiv.appendChild(highlightDiv);
       
-      // Create ranges container
+      // Создаём контейнер для фреймов
       const rangesDiv = document.createElement('div');
       rangesDiv.className = 'expression-ranges';
       rangesDiv.id = 'expressionRanges';
@@ -673,7 +672,7 @@
       
       expressionContainer.appendChild(textDiv);
       
-      // Create frames
+      // Создаём фреймы
       createFrames(exprString, rangesDiv, highlightDiv);
     }
 
@@ -738,13 +737,13 @@
         rangesContainer.appendChild(frame);
       });
       
-      console.log(`Created ${positions.length} frames across ${levels.length} levels`);
+      console.log(`Создано ${positions.length} фреймов на ${levels.length} уровнях`);
     }
 
     function showCommands(node, text, rules) {
       commandsPanel.innerHTML = '';
       
-      // Show selected expression
+      // Показываем выбранное выражение
       const selectionDiv = document.createElement('div');
       selectionDiv.style.cssText = `
         background: var(--accent-soft);
@@ -756,25 +755,25 @@
         font-family: 'Courier New', monospace;
         word-break: break-all;
       `;
-      selectionDiv.textContent = `Selected: ${text}`;
+      selectionDiv.textContent = `Выбрано: ${text}`;
       commandsPanel.appendChild(selectionDiv);
       
       if (rules.length === 0) {
         const placeholder = document.createElement('p');
         placeholder.className = 'placeholder';
-        placeholder.textContent = 'No transformations available';
+        placeholder.textContent = 'Нет доступных преобразований';
         commandsPanel.appendChild(placeholder);
         return;
       }
       
-      // Group rules by category
+      // Группируем правила по категориям
       const grouped = {};
       rules.forEach(rule => {
         if (!grouped[rule.category]) grouped[rule.category] = [];
         grouped[rule.category].push(rule);
       });
       
-      // Render grouped commands
+      // Отображаем сгруппированные команды
       Object.entries(grouped).forEach(([category, categoryRules]) => {
         const categoryDiv = document.createElement('div');
         categoryDiv.className = 'command-category';
@@ -813,21 +812,21 @@
         const newNode = rule.apply(node);
         const newExpr = expressionToString(newNode);
         
-        // Add to history
+        // Добавляем в историю
         addToHistory(newExpr, rule.name, newNode);
         
-        // Show description
+        // Показываем описание
         showDescription(rule);
         
         expressionInput.value = newExpr;
         buildExpression();
       } catch (error) {
-        showError('Transformation failed: ' + error.message);
+        showError('Ошибка преобразования: ' + error.message);
       }
     }
 
     function addToHistory(expression, ruleName, node) {
-      // Truncate history if we're not at the end
+      // Обрезаем историю, если мы не в конце
       if (currentStateIndex < historyStates.length - 1) {
         historyStates = historyStates.slice(0, currentStateIndex + 1);
       }
@@ -845,7 +844,7 @@
 
     function renderHistory() {
       if (historyStates.length === 0) {
-        historyPanel.innerHTML = '<p class="placeholder">Transformation history will appear here</p>';
+        historyPanel.innerHTML = '<p class="placeholder">История преобразований появится здесь</p>';
         return;
       }
       
@@ -892,13 +891,13 @@
     }
 
     function showDescription(rule) {
-      const description = ruleDescriptions[rule.id] || 'No description available for this rule.';
+      const description = ruleDescriptions[rule.id] || 'Описание для этого правила недоступно.';
       
       descriptionPanel.innerHTML = `
-        <p><strong>Rule:</strong> ${rule.name}</p>
-        <p><strong>Category:</strong> ${rule.category}</p>
-        <p><strong>Preview:</strong> <code>${rule.preview}</code></p>
-        <p><strong>Description:</strong> ${description}</p>
+        <p><strong>Правило:</strong> ${rule.name}</p>
+        <p><strong>Категория:</strong> ${rule.category}</p>
+        <p><strong>Предпросмотр:</strong> <code>${rule.preview}</code></p>
+        <p><strong>Описание:</strong> ${description}</p>
       `;
     }
 
@@ -911,7 +910,7 @@
       errorMessage.classList.remove('show');
     }
 
-    // Auto-build example on load
+    // Автоматическая постройка примера при загрузке
     setTimeout(() => {
       expressionInput.value = '2x + 3 * -(4 --- 2.4 )/ 23+abc';
       buildExpression();

@@ -1,6 +1,6 @@
 /**
- * Expression Analyzer Module
- * Finds all valid subexpressions and determines frame layout
+ * Модуль анализатора выражений
+ * Находит все валидные подвыражения и определяет расположение фреймов
  */
 
 import type { Subexpression, SubexpressionPosition, LayoutConfig } from '../types/index.js';
@@ -8,13 +8,13 @@ import { ExpressionParser } from './parser.js';
 import { getApplicableRules } from './rules.js';
 
 /**
- * Find all valid subexpressions in an expression string
+ * Найти все валидные подвыражения в строке выражения
  */
 export function findAllSubexpressions(exprString: string): Subexpression[] {
   const subexpressions: Subexpression[] = [];
   const length = exprString.length;
   
-  // Try all possible substrings
+  // Пробуем все возможные подстроки
   for (let start = 0; start < length; start++) {
     for (let end = start + 1; end <= length; end++) {
       const substring = exprString.substring(start, end);
@@ -22,15 +22,15 @@ export function findAllSubexpressions(exprString: string): Subexpression[] {
       
       if (!trimmedSubstring) continue;
       
-      // Skip if starts or ends with whitespace (we want exact positions)
+      // Пропускаем, если начинается или заканчивается пробелом (нужны точные позиции)
       if (substring !== trimmedSubstring) continue;
       
-      // Skip individual digits that are part of a larger number
+      // Пропускаем отдельные цифры, которые являются частью большего числа
       if (/^\d$/.test(trimmedSubstring)) {
         const charBefore = start > 0 ? exprString[start - 1] : '';
         const charAfter = end < length ? exprString[end] : '';
         if (/\d/.test(charBefore) || /\d/.test(charAfter)) {
-          continue; // Skip, this digit is part of a multi-digit number
+          continue; // Пропускаем, эта цифра является частью многозначного числа
         }
       }
       
@@ -38,12 +38,12 @@ export function findAllSubexpressions(exprString: string): Subexpression[] {
         const parser = new ExpressionParser(trimmedSubstring);
         const node = parser.parse();
         
-        // Check if this is a meaningful expression
+        // Проверяем, является ли это значимым выражением
         if (node) {
-          // Get applicable rules to check if this subexpression is useful
+          // Получаем применимые правила для проверки полезности подвыражения
           const rules = getApplicableRules(node);
           
-          // Skip if no transformations are available
+          // Пропускаем, если нет доступных преобразований
           if (rules.length === 0) {
             continue;
           }
@@ -58,12 +58,12 @@ export function findAllSubexpressions(exprString: string): Subexpression[] {
           });
         }
       } catch (e) {
-        // Not a valid expression, skip silently
+        // Не валидное выражение, пропускаем тихо
       }
     }
   }
   
-  // Remove duplicates based on position
+  // Удаляем дубликаты на основе позиции
   const uniqueSubexpressions: Subexpression[] = [];
   const seen = new Set<string>();
   
@@ -79,7 +79,7 @@ export function findAllSubexpressions(exprString: string): Subexpression[] {
 }
 
 /**
- * Assign levels to subexpressions to avoid visual overlap
+ * Назначить уровни подвыражениям для предотвращения визуального перекрытия
  */
 export function assignLevels(subexpressions: Subexpression[]): Subexpression[][] {
   const levels: Subexpression[][] = [];
@@ -117,14 +117,14 @@ export function assignLevels(subexpressions: Subexpression[]): Subexpression[][]
 }
 
 /**
- * Check if two ranges overlap
+ * Проверить, перекрываются ли два диапазона
  */
 export function doRangesOverlap(start1: number, end1: number, start2: number, end2: number): boolean {
   return !(end1 <= start2 || end2 <= start1);
 }
 
 /**
- * Calculate frame positions for subexpressions
+ * Вычислить позиции фреймов для подвыражений
  */
 export function calculateFramePositions(
   subexpressions: Subexpression[],
@@ -149,11 +149,11 @@ export function calculateFramePositions(
 }
 
 /**
- * Measure text width using monospace font metrics
+ * Измерить ширину текста, используя метрики моноширинного шрифта
  */
 export function measureTextWidth(text: string): number {
   if (typeof document === 'undefined') {
-    // Fallback for Node.js environment
+    // Запасной вариант для окружения Node.js
     return text.length * 10;
   }
   
@@ -170,7 +170,7 @@ export function measureTextWidth(text: string): number {
 }
 
 /**
- * Get total height needed for all frame levels
+ * Получить общую высоту, необходимую для всех уровней фреймов
  */
 export function calculateTotalHeight(
   levels: Subexpression[][],

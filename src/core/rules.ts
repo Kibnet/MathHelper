@@ -1,18 +1,18 @@
 /**
- * Transformation Rules Module
- * Defines all available transformation rules and their applicability
+ * Модуль правил преобразования
+ * Определяет все доступные правила преобразования и их применимость
  */
 
 import type { ASTNode, ConstantNode, OperatorNode, TransformationRule, ImplicitMulNode } from '../types/index.js';
 import { generateId } from './parser.js';
 
 /**
- * Get all applicable transformation rules for a node
+ * Получить все применимые правила преобразования для узла
  */
 export function getApplicableRules(node: ASTNode): TransformationRule[] {
   const rules: TransformationRule[] = [];
   
-  // === PRIORITY 1: COMPUTATION ===
+  // === ПРИОРИТЕТ 1: ВЫЧИСЛЕНИЯ ===
   
   if (node.type === 'operator' && node.value === '*') {
     if (node.children[0].type === 'constant' && node.children[1].type === 'constant') {
@@ -20,8 +20,8 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
       const right = node.children[1] as ConstantNode;
       rules.push({
         id: 'eval_mul',
-        name: '→ Evaluate',
-        category: '1. Computation',
+        name: '→ Вычислить',
+        category: '1. Вычисления',
         preview: `${left.value}*${right.value} → ${left.value * right.value}`,
         apply: evaluateMultiplication
       });
@@ -34,8 +34,8 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
       const right = node.children[1] as ConstantNode;
       rules.push({
         id: 'eval_div',
-        name: '→ Evaluate',
-        category: '1. Computation',
+        name: '→ Вычислить',
+        category: '1. Вычисления',
         preview: `${left.value}/${right.value} → ${left.value / right.value}`,
         apply: evaluateDivision
       });
@@ -49,24 +49,24 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
       const result = node.value === '+' ? left.value + right.value : left.value - right.value;
       rules.push({
         id: 'eval_add_sub',
-        name: '→ Evaluate',
-        category: '1. Computation',
+        name: '→ Вычислить',
+        category: '1. Вычисления',
         preview: `${left.value}${node.value}${right.value} → ${result}`,
         apply: node.value === '+' ? evaluateAddition : evaluateSubtraction
       });
     }
   }
   
-  // === PRIORITY 2: SIMPLIFICATION ===
+  // === ПРИОРИТЕТ 2: УПРОЩЕНИЯ ===
   
   if (node.type === 'operator' && node.value === '*') {
     if ((node.children[0].type === 'constant' && node.children[0].value === 1) ||
         (node.children[1].type === 'constant' && node.children[1].value === 1)) {
       rules.push({
         id: 'remove_mult_one',
-        name: '→ Remove *1',
-        category: '2. Simplification',
-        preview: 'a*1 → a or 1*a → a',
+        name: '→ Убрать *1',
+        category: '2. Упрощения',
+        preview: 'a*1 → a или 1*a → a',
         apply: removeMultiplicationByOne
       });
     }
@@ -77,8 +77,8 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
         (node.children[1].type === 'constant' && node.children[1].value === 0)) {
       rules.push({
         id: 'simplify_mult_zero',
-        name: '→ Simplify to 0',
-        category: '2. Simplification',
+        name: '→ Упростить до 0',
+        category: '2. Упрощения',
         preview: 'a*0 → 0',
         apply: simplifyMultiplicationByZero
       });
@@ -89,8 +89,8 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
     if (node.children[1].type === 'constant' && node.children[1].value === 1) {
       rules.push({
         id: 'remove_div_one',
-        name: '→ Remove /1',
-        category: '2. Simplification',
+        name: '→ Убрать /1',
+        category: '2. Упрощения',
         preview: 'a/1 → a',
         apply: removeDivisionByOne
       });
@@ -102,9 +102,9 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
         (node.children[1].type === 'constant' && node.children[1].value === 0)) {
       rules.push({
         id: 'remove_add_zero',
-        name: '→ Remove +0',
-        category: '2. Simplification',
-        preview: 'a+0 → a or 0+a → a',
+        name: '→ Убрать +0',
+        category: '2. Упрощения',
+        preview: 'a+0 → a или 0+a → a',
         apply: removeAdditionOfZero
       });
     }
@@ -114,8 +114,8 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
     if (node.children[1].type === 'constant' && node.children[1].value === 0) {
       rules.push({
         id: 'remove_sub_zero',
-        name: '→ Remove -0',
-        category: '2. Simplification',
+        name: '→ Убрать -0',
+        category: '2. Упрощения',
         preview: 'a-0 → a',
         apply: removeSubtractionOfZero
       });
@@ -125,8 +125,8 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
   if (node.type === 'unary' && node.children[0].type === 'unary') {
     rules.push({
       id: 'double_negation',
-      name: '→ Remove Double Negative',
-      category: '2. Simplification',
+      name: '→ Убрать двойное отрицание',
+      category: '2. Упрощения',
       preview: '--a → a',
       apply: removeDoubleNegation
     });
@@ -135,22 +135,22 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
   if (node.type === 'group' && node.children[0].type !== 'operator') {
     rules.push({
       id: 'remove_parens',
-      name: '→ Remove Parentheses',
-      category: '2. Simplification',
+      name: '→ Убрать скобки',
+      category: '2. Упрощения',
       preview: '(a) → a',
       apply: removeParentheses
     });
   }
   
-  // === PRIORITY 3: TRANSFORMATIONS ===
+  // === ПРИОРИТЕТ 3: ПРЕОБРАЗОВАНИЯ ===
   
   if (node.type === 'operator' && node.value === '*') {
     if (node.children[1].type === 'operator' && 
         (node.children[1].value === '+' || node.children[1].value === '-')) {
       rules.push({
         id: 'distributive_forward',
-        name: '→ Expand (Distributive)',
-        category: '3. Transformation',
+        name: '→ Раскрыть (Распределительное)',
+        category: '3. Преобразования',
         preview: 'a*(b+c) → a*b + a*c',
         apply: applyDistributiveForward
       });
@@ -160,21 +160,21 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
         (node.children[0].value === '+' || node.children[0].value === '-')) {
       rules.push({
         id: 'distributive_forward_left',
-        name: '→ Expand (Distributive)',
-        category: '3. Transformation',
+        name: '→ Раскрыть (Распределительное)',
+        category: '3. Преобразования',
         preview: '(a+b)*c → a*c + b*c',
         apply: applyDistributiveForwardLeft
       });
     }
   }
   
-  // === PRIORITY 4: REARRANGEMENT ===
+  // === ПРИОРИТЕТ 4: ПЕРЕСТАНОВКА ===
   
   if (node.type === 'operator' && node.value === '*') {
     rules.push({
       id: 'commutative_mul',
-      name: 'Swap Operands',
-      category: '4. Rearrangement',
+      name: 'Поменять местами операнды',
+      category: '4. Перестановка',
       preview: 'a*b → b*a',
       apply: applyCommutative
     });
@@ -183,21 +183,21 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
   if (node.type === 'operator' && node.value === '+') {
     rules.push({
       id: 'commutative_add',
-      name: 'Swap Operands',
-      category: '4. Rearrangement',
+      name: 'Поменять местами операнды',
+      category: '4. Перестановка',
       preview: 'a+b → b+a',
       apply: applyCommutative
     });
   }
   
-  // === NOTATION: Implicit/Explicit Multiplication ===
+  // === НОТАЦИЯ: Неявное/Явное умножение ===
   
   // Раскрытие неявного умножения (2a → 2*a)
   if (node.type === 'implicit_mul') {
     rules.push({
       id: 'expand_implicit_mul',
-      name: '→ Expand Implicit *',
-      category: '6. Notation',
+      name: '→ Раскрыть неявное *',
+      category: '6. Нотация',
       preview: '2a → 2*a',
       apply: expandImplicitMultiplication
     });
@@ -226,21 +226,21 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
     if (canCollapse) {
       rules.push({
         id: 'collapse_to_implicit_mul',
-        name: '→ Collapse to Implicit *',
-        category: '6. Notation',
+        name: '→ Свернуть в неявное *',
+        category: '6. Нотация',
         preview: '2*a → 2a',
         apply: collapseToImplicitMultiplication
       });
     }
   }
   
-  // === PRIORITY 5: WRAPPING ===
+  // === ПРИОРИТЕТ 5: ОБЕРТЫВАНИЕ ===
   
   if (node.type !== 'group') {
     rules.push({
       id: 'add_parens',
-      name: '+ Add Parentheses',
-      category: '5. Wrapping',
+      name: '+ Добавить скобки',
+      category: '5. Обертывание',
       preview: 'a → (a)',
       apply: addParentheses
     });
@@ -248,32 +248,32 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
   
   rules.push({
     id: 'add_double_neg',
-    name: '+ Add Double Negative',
-    category: '5. Wrapping',
+    name: '+ Добавить двойное отрицание',
+    category: '5. Обертывание',
     preview: 'a → --a',
     apply: applyDoubleNegation
   });
   
   rules.push({
     id: 'multiply_by_one',
-    name: '+ Multiply by 1',
-    category: '5. Wrapping',
+    name: '+ Умножить на 1',
+    category: '5. Обертывание',
     preview: 'a → a*1',
     apply: multiplyByOne
   });
   
   rules.push({
     id: 'divide_by_one',
-    name: '+ Divide by 1',
-    category: '5. Wrapping',
+    name: '+ Разделить на 1',
+    category: '5. Обертывание',
     preview: 'a → a/1',
     apply: divideByOne
   });
   
   rules.push({
     id: 'add_zero',
-    name: '+ Add Zero',
-    category: '5. Wrapping',
+    name: '+ Прибавить ноль',
+    category: '5. Обертывание',
     preview: 'a → a+0',
     apply: addZero
   });
@@ -281,7 +281,7 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
   return rules;
 }
 
-// === Transformation Functions ===
+// === Функции преобразования ===
 
 function evaluateMultiplication(node: ASTNode): ConstantNode {
   const n = node as OperatorNode;
@@ -476,7 +476,7 @@ function addZero(node: ASTNode): OperatorNode {
   };
 }
 
-// === Implicit Multiplication Transformations ===
+// === Преобразования неявного умножения ===
 
 /**
  * Раскрывает неявное умножение в явное (2a → 2*a)

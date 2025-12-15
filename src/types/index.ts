@@ -1,5 +1,5 @@
 /**
- * AST Node Types
+ * Типы AST узлов
  */
 
 export type NodeType = 'constant' | 'variable' | 'operator' | 'unary' | 'group' | 'implicit_mul';
@@ -49,16 +49,16 @@ export interface ImplicitMulNode extends BaseNode {
 export type ASTNode = ConstantNode | VariableNode | OperatorNode | UnaryNode | GroupNode | ImplicitMulNode;
 
 /**
- * Transformation Rule Types
+ * Типы правил преобразования
  */
 
 export type RuleCategory = 
-  | '1. Computation'
-  | '2. Simplification'
-  | '3. Transformation'
-  | '4. Rearrangement'
-  | '5. Wrapping'
-  | '6. Notation';
+  | '1. Вычисления'
+  | '2. Упрощения'
+  | '3. Преобразования'
+  | '4. Перестановка'
+  | '5. Обертывание'
+  | '6. Нотация';
 
 export interface TransformationRule {
   id: string;
@@ -69,7 +69,7 @@ export interface TransformationRule {
 }
 
 /**
- * Subexpression Analysis Types
+ * Типы анализа подвыражений
  */
 
 export interface Subexpression {
@@ -94,7 +94,7 @@ export interface LayoutConfig {
 }
 
 /**
- * History Types
+ * Типы истории
  */
 
 export interface HistoryState {

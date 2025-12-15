@@ -1,6 +1,6 @@
 /**
- * Expression Parser Module
- * Parses mathematical expressions into AST (Abstract Syntax Tree)
+ * Модуль парсера выражений
+ * Разбирает математические выражения в AST (абстрактное синтаксическое дерево)
  */
 
 import type { ASTNode, ConstantNode, VariableNode, OperatorNode, UnaryNode, GroupNode, OperatorValue, ImplicitMulNode } from '../types/index.js';
@@ -29,11 +29,11 @@ export class ExpressionParser {
   }
 
   parse(): ASTNode {
-    if (this.tokens.length === 0) throw new Error('Empty expression');
+    if (this.tokens.length === 0) throw new Error('Пустое выражение');
     const result = this.parseExpression();
     if (this.pos < this.tokens.length) {
       const token = this.tokens[this.pos];
-      throw new Error(`Unexpected token at position ${token.start}: ${token.value}`);
+      throw new Error(`Неожиданный токен на позиции ${token.start}: ${token.value}`);
     }
     return result;
   }
@@ -120,7 +120,7 @@ export class ExpressionParser {
     const token = this.peek();
     
     if (!token) {
-      throw new Error('Unexpected end of expression');
+      throw new Error('Неожиданный конец выражения');
     }
 
     // Группа (скобки)
@@ -129,7 +129,7 @@ export class ExpressionParser {
       const expr = this.parseExpression();
       const closeParen = this.peek();
       if (!closeParen || closeParen.value !== ')') {
-        throw new Error('Missing closing parenthesis');
+        throw new Error('Отсутствует закрывающая скобка');
       }
       this.consume();
       const node: GroupNode = {
@@ -151,7 +151,7 @@ export class ExpressionParser {
       return this.parseVariable();
     }
 
-    throw new Error(`Unexpected token: ${token.value}`);
+    throw new Error(`Неожиданный токен: ${token.value}`);
   }
 
   private parseNumber(): ConstantNode {
@@ -179,7 +179,7 @@ export class ExpressionParser {
   private consume(): Token {
     const token = this.tokens[this.pos];
     if (!token) {
-      throw new Error('Unexpected end of expression');
+      throw new Error('Неожиданный конец выражения');
     }
     this.pos++;
     return token;

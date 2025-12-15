@@ -1,12 +1,12 @@
 /**
- * Utility Functions Module
- * Helper functions for expression manipulation
+ * Модуль вспомогательных функций
+ * Вспомогательные функции для манипуляции с выражениями
  */
 
 import type { ASTNode } from '../types/index.js';
 
 /**
- * Convert AST node to string representation
+ * Преобразовать AST узел в строковое представление
  */
 export function expressionToString(node: ASTNode): string {
   if (node.type === 'constant') {
@@ -35,7 +35,7 @@ export function expressionToString(node: ASTNode): string {
 }
 
 /**
- * Deep clone an AST node
+ * Глубокое клонирование AST узла
  */
 export function cloneNode(node: ASTNode): ASTNode {
   if (node.type === 'constant') {
@@ -62,7 +62,7 @@ export function cloneNode(node: ASTNode): ASTNode {
 }
 
 /**
- * Find a node by ID in the AST
+ * Найти узел по ID в AST
  */
 export function findNodeById(root: ASTNode, id: string): ASTNode | null {
   if (root.id === id) return root;
@@ -78,7 +78,7 @@ export function findNodeById(root: ASTNode, id: string): ASTNode | null {
 }
 
 /**
- * Replace a node in the AST
+ * Заменить узел в AST
  */
 export function replaceNode(root: ASTNode, targetId: string, newNode: ASTNode): ASTNode {
   if (root.id === targetId) {
@@ -104,7 +104,7 @@ export function replaceNode(root: ASTNode, targetId: string, newNode: ASTNode): 
 }
 
 /**
- * Get all leaf nodes (constants and variables) from AST
+ * Получить все листовые узлы (константы и переменные) из AST
  */
 export function getLeafNodes(node: ASTNode): ASTNode[] {
   if (node.type === 'constant' || node.type === 'variable') {
@@ -119,7 +119,7 @@ export function getLeafNodes(node: ASTNode): ASTNode[] {
 }
 
 /**
- * Count total nodes in AST
+ * Подсчитать общее количество узлов в AST
  */
 export function countNodes(node: ASTNode): number {
   let count = 1;
@@ -132,7 +132,7 @@ export function countNodes(node: ASTNode): number {
 }
 
 /**
- * Get the depth of the AST
+ * Получить глубину AST
  */
 export function getDepth(node: ASTNode): number {
   if (!('children' in node) || !node.children) {
@@ -144,7 +144,7 @@ export function getDepth(node: ASTNode): number {
 }
 
 /**
- * Check if two nodes are structurally equal
+ * Проверить, равны ли два узла структурно
  */
 export function nodesEqual(node1: ASTNode, node2: ASTNode): boolean {
   if (node1.type !== node2.type) return false;
@@ -168,7 +168,7 @@ export function nodesEqual(node1: ASTNode, node2: ASTNode): boolean {
 }
 
 /**
- * Get all node IDs in the AST
+ * Получить все ID узлов в AST
  */
 export function getAllNodeIds(node: ASTNode): string[] {
   const ids: string[] = [node.id];
