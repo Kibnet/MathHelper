@@ -1,6 +1,6 @@
 /**
- * Rules Tests
- * Comprehensive tests for transformation rules
+ * Тесты правил
+ * Комплексные тесты для правил преобразования
  */
 
 import { describe, it, expect } from 'vitest';

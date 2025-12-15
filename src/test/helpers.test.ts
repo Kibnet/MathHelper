@@ -1,6 +1,6 @@
 /**
- * Helpers Tests
- * Comprehensive tests for AST helper utilities
+ * Тесты вспомогательных функций
+ * Комплексные тесты для вспомогательных утилит AST
  */
 
 import { describe, it, expect } from 'vitest';

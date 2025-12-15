@@ -6,7 +6,7 @@
   <title>Преобразователь выражений</title>
   <link rel="stylesheet" href="styles.css">
   <style>
-    /* Inline styles from original - will extract to styles.css later */
+    /* Инлайновые стили из оригинала - будут вынесены в styles.css позже */
     :root {
       --bg: #020617;
       --bg-card: rgba(15, 23, 42, 0.96);
@@ -260,7 +260,7 @@
       border-width: 3px;
     }
 
-    /* Range colors */
+    /* Цвета фреймов */
     .expression-range.level-0 { border-color: #3498db; }
     .expression-range.level-1 { border-color: #9b59b6; }
     .expression-range.level-2 { border-color: #27ae60; }
@@ -270,7 +270,7 @@
     .expression-range.level-6 { border-color: #f39c12; }
     .expression-range.level-7 { border-color: #95a5a6; }
 
-    /* Left Panel - Commands */
+    /* Левая панель - Команды */
     .left-panel {
       background: var(--bg-card);
       border-right: 1px solid var(--border-subtle);
@@ -291,7 +291,7 @@
       overflow-y: auto;
     }
 
-    /* Center Panel - Main Content */
+    /* Центральная панель - Основное содержимое */
     .center-panel {
       display: flex;
       flex-direction: column;
@@ -314,7 +314,7 @@
       align-items: flex-start;
     }
 
-    /* Right Panel - History & Description */
+    /* Правая панель - История и Описание */
     .right-panel {
       background: var(--bg-card);
       border-left: 1px solid var(--border-subtle);
@@ -475,7 +475,7 @@
   </div>
 
   <div class="app-layout">
-    <!-- Left Panel: Commands -->
+    <!-- Левая панель: Команды -->
     <div class="left-panel">
       <h3>⚡ Доступные команды</h3>
       <div id="commandsPanel" class="commands-list">
@@ -483,7 +483,7 @@
       </div>
     </div>
 
-    <!-- Center Panel: Input + Expression -->
+    <!-- Центральная панель: Ввод + Выражение -->
     <div class="center-panel">
       <div class="input-section">
         <div class="input-group">
@@ -513,7 +513,7 @@
       </div>
     </div>
 
-    <!-- Right Panel: History + Description -->
+    <!-- Правая панель: История + Описание -->
     <div class="right-panel">
       <div class="history-section">
         <h3>📜 История</h3>
@@ -532,7 +532,7 @@
   </div>
 
   <script type="module">
-    // Import TypeScript modules (Vite will compile)
+    // Импорт TypeScript модулей (Vite скомпилирует)
     import { ExpressionParser, resetIdCounter } from './src/core/parser.ts';
     import { 
       findAllSubexpressions, 
@@ -544,7 +544,7 @@
     import { expressionToString } from './src/utils/helpers.ts';
     import { tokenize, getTokenTypeName, getTokenColor } from './src/utils/tokenizer.ts';
 
-    // Global state
+    // Глобальное состояние
     let currentExpression = null;
     let currentNode = null;
     let historyStates = [];
@@ -585,7 +585,7 @@
     const historyPanel = document.getElementById('historyPanel');
     const descriptionPanel = document.getElementById('descriptionPanel');
 
-    // Build expression
+    // Построение выражения
     buildBtn.addEventListener('click', buildExpression);
     expressionInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') buildExpression();
@@ -684,24 +684,24 @@
         return;
       }
 
-      // Sort by start position, then by length
+      // Сортируем по начальной позиции, затем по длине
       subexpressions.sort((a, b) => {
         if (a.start !== b.start) return a.start - b.start;
         return a.length - b.length;
       });
 
-      // Assign levels
+      // Назначаем уровни
       const levels = assignLevels(subexpressions);
       
-      // Calculate positions
+      // Вычисляем позиции
       const config = { LEVEL_HEIGHT: 18, BASE_OFFSET: 5 };
       const positions = calculateFramePositions(subexpressions, exprString, config);
       
-      // Set container height
+      // Устанавливаем высоту контейнера
       const totalHeight = calculateTotalHeight(levels, config);
       rangesContainer.style.height = totalHeight + 'px';
       
-      // Create frame elements
+      // Создаём элементы фреймов
       positions.forEach(pos => {
         const frame = document.createElement('div');
         frame.className = `expression-range level-${pos.level % 8}`;
@@ -715,7 +715,7 @@
         frame.dataset.start = pos.start;
         frame.dataset.end = pos.end;
         
-        // Hover to highlight
+        // Наведение для подсветки
         frame.addEventListener('mouseenter', () => {
           highlightElement.style.left = pos.left + 'px';
           highlightElement.style.width = pos.width + 'px';
@@ -726,7 +726,7 @@
           highlightElement.classList.remove('active');
         });
         
-        // Click to show commands
+        // Клик для показа команд
         frame.addEventListener('click', (e) => {
           e.stopPropagation();
           document.querySelectorAll('.expression-range').forEach(f => f.classList.remove('active'));

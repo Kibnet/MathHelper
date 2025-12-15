@@ -1,6 +1,6 @@
 /**
- * Parser Tests
- * Comprehensive tests for expression parser including edge cases
+ * Тесты парсера
+ * Комплексные тесты для парсера выражений, включая краевые случаи
  */
 
 import { describe, it, expect } from 'vitest';

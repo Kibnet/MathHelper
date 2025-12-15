@@ -1,6 +1,6 @@
 /**
- * Simple Test Framework
- * Lightweight testing utilities without external dependencies
+ * Простой тестовый фреймворк
+ * Легковесные утилиты для тестирования без внешних зависимостей
  */
 
 export interface TestResult {
@@ -94,7 +94,7 @@ export const describe = runner.describe.bind(runner);
 export const it = runner.it.bind(runner);
 
 /**
- * Assertion utilities
+ * Утилиты для проверок
  */
 export function expect<T>(actual: T) {
   return {

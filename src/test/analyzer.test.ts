@@ -1,6 +1,6 @@
 /**
- * Analyzer Tests
- * Comprehensive tests for subexpression detection and frame layout
+ * Тесты анализатора
+ * Комплексные тесты для обнаружения подвыражений и расположения фреймов
  */
 
 import { describe, it, expect } from 'vitest';
