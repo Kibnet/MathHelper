@@ -21,6 +21,11 @@ export function expressionToString(node: ASTNode): string {
     return '-' + operand;
   } else if (node.type === 'group') {
     return '(' + expressionToString(node.children[0]) + ')';
+  } else if (node.type === 'implicit_mul') {
+    // Неявное умножение - без пробелов и без оператора *
+    const left = expressionToString(node.children[0]);
+    const right = expressionToString(node.children[1]);
+    return left + right;
   } else if (node.type === 'operator') {
     const left = expressionToString(node.children[0]);
     const right = expressionToString(node.children[1]);
@@ -47,7 +52,7 @@ export function cloneNode(node: ASTNode): ASTNode {
       ...node,
       children: [cloneNode(node.children[0])]
     };
-  } else if (node.type === 'operator') {
+  } else if (node.type === 'operator' || node.type === 'implicit_mul') {
     return {
       ...node,
       children: [cloneNode(node.children[0]), cloneNode(node.children[1])]
@@ -85,7 +90,7 @@ export function replaceNode(root: ASTNode, targetId: string, newNode: ASTNode): 
       ...root,
       children: [replaceNode(root.children[0], targetId, newNode)]
     };
-  } else if (root.type === 'operator') {
+  } else if (root.type === 'operator' || root.type === 'implicit_mul') {
     return {
       ...root,
       children: [
@@ -148,7 +153,8 @@ export function nodesEqual(node1: ASTNode, node2: ASTNode): boolean {
     return node1.value === node2.value;
   } else if (node1.type === 'variable' && node2.type === 'variable') {
     return node1.value === node2.value;
-  } else if (node1.type === 'operator' && node2.type === 'operator') {
+  } else if ((node1.type === 'operator' || node1.type === 'implicit_mul') && 
+             (node2.type === 'operator' || node2.type === 'implicit_mul')) {
     return node1.value === node2.value &&
            nodesEqual(node1.children[0], node2.children[0]) &&
            nodesEqual(node1.children[1], node2.children[1]);

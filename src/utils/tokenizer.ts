@@ -15,6 +15,21 @@ export interface Token {
   value: string;
   start: number;
   end: number;
+  implicit?: boolean; // Флаг для неявного умножения
+}
+
+/**
+ * Проверяет, является ли символ буквой любого алфавита
+ */
+function isLetter(char: string): boolean {
+  return char !== '' && /\p{L}/u.test(char);
+}
+
+/**
+ * Проверяет, является ли символ цифрой
+ */
+function isDigit(char: string): boolean {
+  return char !== '' && /[0-9]/.test(char);
 }
 
 /**
@@ -23,19 +38,18 @@ export interface Token {
 export function tokenize(expression: string): Token[] {
   const tokens: Token[] = [];
   let pos = 0;
-  const original = expression;
   
-  // Удаляем пробелы для позиционирования
+  // Удаляем пробелы
   expression = expression.replace(/\s+/g, '');
   
   while (pos < expression.length) {
     const char = expression[pos];
     
     // Числа
-    if (/[0-9]/.test(char)) {
+    if (isDigit(char)) {
       let num = '';
       const start = pos;
-      while (pos < expression.length && /[0-9.]/.test(expression[pos])) {
+      while (pos < expression.length && (isDigit(expression[pos]) || expression[pos] === '.')) {
         num += expression[pos++];
       }
       tokens.push({
@@ -47,19 +61,15 @@ export function tokenize(expression: string): Token[] {
       continue;
     }
     
-    // Переменные
-    if (/[a-zA-Z]/.test(char)) {
-      let name = '';
-      const start = pos;
-      while (pos < expression.length && /[a-zA-Z]/.test(expression[pos])) {
-        name += expression[pos++];
-      }
+    // Переменные (одна буква любого алфавита)
+    if (isLetter(char)) {
       tokens.push({
         type: 'variable',
-        value: name,
-        start,
-        end: pos
+        value: char,
+        start: pos,
+        end: pos + 1
       });
+      pos++;
       continue;
     }
     
@@ -81,6 +91,7 @@ export function tokenize(expression: string): Token[] {
       const isUnary = char === '-' && (
         tokens.length === 0 || 
         tokens[tokens.length - 1].type === 'operator' ||
+        tokens[tokens.length - 1].type === 'unary' ||
         tokens[tokens.length - 1].value === '('
       );
       
@@ -99,6 +110,52 @@ export function tokenize(expression: string): Token[] {
   }
   
   return tokens;
+}
+
+/**
+ * Вставляет неявное умножение между токенами
+ * Например: abc -> a*b*c, 2x -> 2*x, (a+b)c -> (a+b)*c
+ * ВАЖНО: Вставляемые операторы помечаются как 'implicit_mul' для отличия от явных
+ */
+export function insertImplicitMultiplication(tokens: Token[]): Token[] {
+  const result: Token[] = [];
+  
+  for (let i = 0; i < tokens.length; i++) {
+    result.push(tokens[i]);
+    
+    // Проверяем, нужно ли вставить * перед следующим токеном
+    if (i < tokens.length - 1) {
+      const current = tokens[i];
+      const next = tokens[i + 1];
+      
+      // Добавляем * в следующих случаях:
+      // 1. Число/переменная перед переменной: 2x, ab
+      // 2. Число/переменная перед открывающей скобкой: 2(x+1), a(b+c)
+      // 3. Закрывающая скобка перед числом/переменной/открывающей скобкой: (a+b)c, (x)2, (a)(b)
+      
+      const needsMultiplication = (
+        // Число перед переменной или (
+        (current.type === 'number' && (next.type === 'variable' || next.value === '(')) ||
+        // Переменная перед переменной или (
+        (current.type === 'variable' && (next.type === 'variable' || next.value === '(')) ||
+        // ) перед числом, переменной или (
+        (current.value === ')' && (next.type === 'number' || next.type === 'variable' || next.value === '('))
+      );
+      
+      if (needsMultiplication) {
+        result.push({
+          type: 'operator',
+          value: '*',
+          start: current.end,
+          end: current.end,
+          // @ts-ignore - добавляем флаг для обозначения неявного умножения
+          implicit: true
+        });
+      }
+    }
+  }
+  
+  return result;
 }
 
 /**

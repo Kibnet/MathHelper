@@ -2,7 +2,7 @@
  * AST Node Types
  */
 
-export type NodeType = 'constant' | 'variable' | 'operator' | 'unary' | 'group';
+export type NodeType = 'constant' | 'variable' | 'operator' | 'unary' | 'group' | 'implicit_mul';
 
 export type OperatorValue = '+' | '-' | '*' | '/';
 
@@ -39,7 +39,14 @@ export interface GroupNode extends BaseNode {
   children: [ASTNode];
 }
 
-export type ASTNode = ConstantNode | VariableNode | OperatorNode | UnaryNode | GroupNode;
+// Узел неявного умножения (2a, abc, (x+1)y)
+export interface ImplicitMulNode extends BaseNode {
+  type: 'implicit_mul';
+  value: '*';
+  children: [ASTNode, ASTNode];
+}
+
+export type ASTNode = ConstantNode | VariableNode | OperatorNode | UnaryNode | GroupNode | ImplicitMulNode;
 
 /**
  * Transformation Rule Types
