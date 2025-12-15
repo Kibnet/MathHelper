@@ -7,6 +7,7 @@ export default defineConfig({
     emptyOutDir: true
   },
   server: {
+    host: '0.0.0.0',
     port: 8000,
     open: '/expression-editor-modular.html'
   }
