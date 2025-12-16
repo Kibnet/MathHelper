@@ -155,6 +155,47 @@ npm run watch
 npm run dev
 ```
 
+### Testing
+
+#### Unit Tests (Vitest)
+
+```bash
+# Run unit tests
+npm test
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests once
+npm run test:run
+
+# Generate coverage report
+npm run coverage
+```
+
+#### E2E Tests (Playwright)
+
+```bash
+# Run E2E tests (headless)
+npm run test:e2e
+
+# Run with visible browser
+npm run test:e2e:headed
+
+# Interactive UI mode
+npm run test:e2e:ui
+
+# Debug mode with step-by-step execution
+npm run test:e2e:debug
+
+# View test report
+npm run test:e2e:report
+```
+
+**Примечание:** Перед запуском E2E тестов убедитесь, что dev сервер запущен (`npm run dev`)
+
+Подробнее об E2E тестировании см. [e2e/README.md](./e2e/README.md)
+
 ### TypeScript Features
 
 - Strict type checking enabled

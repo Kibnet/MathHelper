@@ -39,6 +39,9 @@ Desktop.ini
 coverage/
 .nyc_output/
 html/
+test-results/
+playwright-report/
+playwright/.cache/
 
 # Temporary files
 *.tmp
