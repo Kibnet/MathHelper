@@ -295,6 +295,7 @@
   opacity: 0.8;
   pointer-events: none;
   bottom: 2px;
+  position: absolute; /* Добавляем абсолютное позиционирование */
 }
 
 .expression-range:hover .frame-label {

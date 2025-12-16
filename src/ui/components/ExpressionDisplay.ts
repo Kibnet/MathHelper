@@ -375,13 +375,26 @@ export class ExpressionDisplay {
       }
       
       case 'implicit_mul': {
-        // Позиция между первым и вторым операндами
+        // Для неявного умножения позиционируем метку между операндами
         if (tokens.length >= 2) {
+          // Находим токены операндов
           const firstToken = tokens[0] as HTMLElement;
-          const secondToken = tokens[Math.floor(tokens.length / 2)] as HTMLElement;
-          const left = (firstToken.offsetLeft + firstToken.offsetWidth) - frameLeft;
-          const width = secondToken.offsetLeft - (firstToken.offsetLeft + firstToken.offsetWidth);
-          return { left, width };
+          // Ищем токен, который соответствует началу второго операнда
+          let secondToken = tokens.find((t, i) => i > 0) as HTMLElement;
+          
+          // Если не нашли второй токен, используем последний
+          if (!secondToken) {
+            secondToken = tokens[tokens.length - 1] as HTMLElement;
+          }
+          
+          // Позиция между первым и вторым токенами
+          const midpoint = (firstToken.offsetLeft + firstToken.offsetWidth + secondToken.offsetLeft) / 2;
+          const left = midpoint - frameLeft - 10; // Центрируем метку (примерно 20px ширина)
+          
+          return { 
+            left, 
+            width: 20 // Фиксированная ширина для символа ×
+          };
         }
         break;
       }
