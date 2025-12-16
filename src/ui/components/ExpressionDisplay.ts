@@ -37,12 +37,25 @@ export class ExpressionDisplay {
     // Токенизация выражения
     const tokens = tokenize(exprString);
     
-    // Создаём HTML с токенами
+    // Создаём HTML с токенами и сохраняем позиции
+    let searchPos = 0; // Позиция для поиска в исходной строке
     tokens.forEach(token => {
       const tokenSpan = document.createElement('span');
       tokenSpan.className = 'token';
       tokenSpan.textContent = token.value;
       tokenSpan.style.color = getTokenColor(token.type);
+      
+      // Находим реальную позицию токена в исходной строке (с учётом пробелов)
+      const tokenStart = exprString.indexOf(token.value, searchPos);
+      if (tokenStart === -1) {
+        console.error('Token not found in expression:', token.value);
+        tokenSpan.dataset.start = searchPos.toString();
+        tokenSpan.dataset.end = (searchPos + token.value.length).toString();
+      } else {
+        tokenSpan.dataset.start = tokenStart.toString();
+        tokenSpan.dataset.end = (tokenStart + token.value.length).toString();
+        searchPos = tokenStart + token.value.length; // Обновляем позицию для следующего поиска
+      }
       
       // Добавляем tooltip с названием типа лексемы
       const tooltip = document.createElement('span');
@@ -53,12 +66,6 @@ export class ExpressionDisplay {
       textDiv.appendChild(tokenSpan);
     });
     
-    // Создаём элемент подсветки
-    const highlightDiv = document.createElement('div');
-    highlightDiv.className = 'expression-highlight';
-    highlightDiv.id = 'expressionHighlight';
-    textDiv.appendChild(highlightDiv);
-    
     // Создаём контейнер для фреймов
     const rangesDiv = document.createElement('div');
     rangesDiv.className = 'expression-ranges';
@@ -68,7 +75,7 @@ export class ExpressionDisplay {
     this.container.appendChild(textDiv);
     
     // Создаём фреймы на основе AST дерева
-    this.createFrames(exprString, rootNode, rangesDiv, highlightDiv);
+    this.createFrames(exprString, rootNode, rangesDiv, textDiv);
   }
 
   /**
@@ -81,7 +88,7 @@ export class ExpressionDisplay {
   /**
    * Создаёт фреймы подвыражений на основе AST дерева
    */
-  private createFrames(exprString: string, rootNode: ASTNode, rangesContainer: HTMLElement, highlightElement: HTMLElement): void {
+  private createFrames(exprString: string, rootNode: ASTNode, rangesContainer: HTMLElement, textContainer: HTMLElement): void {
     const subexpressions = extractNodesFromAST(rootNode, exprString);
     
     if (subexpressions.length === 0) {
@@ -98,9 +105,9 @@ export class ExpressionDisplay {
     // Назначаем уровни
     const levels = assignLevels(subexpressions);
     
-    // Вычисляем позиции
+    // Вычисляем позиции на основе реальных размеров токенов
     const config = { LEVEL_HEIGHT: 18, BASE_OFFSET: 5 };
-    const positions = calculateFramePositions(subexpressions, exprString, config);
+    const positions = this.calculateFramePositionsFromTokens(subexpressions, textContainer, config);
     
     // Устанавливаем высоту контейнера
     const totalHeight = calculateTotalHeight(levels, config);
@@ -127,15 +134,14 @@ export class ExpressionDisplay {
       label.textContent = pos.text;
       frame.appendChild(label);
       
-      // Наведение для подсветки
+      // Наведение для подсветки токенов
       frame.addEventListener('mouseenter', () => {
-        highlightElement.style.left = pos.left + 'px';
-        highlightElement.style.width = pos.width + 'px';
-        highlightElement.classList.add('active');
+        console.log('Mouseenter on frame:', pos.text, 'tokens:', pos.tokens?.length || 0);
+        this.highlightTokens((pos as any).tokens || [], true, pos.node);
       });
       
       frame.addEventListener('mouseleave', () => {
-        highlightElement.classList.remove('active');
+        this.highlightTokens((pos as any).tokens || [], false);
       });
       
       // Клик для показа команд
@@ -153,5 +159,95 @@ export class ExpressionDisplay {
     });
     
     console.log(`Создано ${positions.length} фреймов на ${levels.length} уровнях`);
+  }
+
+  /**
+   * Вычисляет позиции фреймов на основе реальных размеров токенов в DOM
+   */
+  private calculateFramePositionsFromTokens(
+    subexpressions: any[],
+    textContainer: HTMLElement,
+    config: { LEVEL_HEIGHT: number; BASE_OFFSET: number }
+  ): any[] {
+    const tokens = Array.from(textContainer.querySelectorAll('.token'));
+    
+    return subexpressions.map(subexpr => {
+      // Находим токены, которые входят в диапазон подвыражения [start, end)
+      const relevantTokens = tokens.filter(token => {
+        const tokenStart = parseInt((token as HTMLElement).dataset.start || '0');
+        const tokenEnd = parseInt((token as HTMLElement).dataset.end || '0');
+        // Токен входит, если он начинается в диапазоне [subexpr.start, subexpr.end)
+        return tokenStart >= subexpr.start && tokenStart < subexpr.end;
+      });
+      
+      console.log(`Subexpr "${subexpr.text}" [${subexpr.start}, ${subexpr.end}): found ${relevantTokens.length} tokens`);
+      
+      if (relevantTokens.length === 0) {
+        console.warn('No tokens found for subexpression:', subexpr.text);
+        return {
+          ...subexpr,
+          left: 0,
+          width: 50,
+          top: config.BASE_OFFSET + ((subexpr.level || 0) * config.LEVEL_HEIGHT),
+          tokens: []
+        };
+      }
+      
+      // Вычисляем границы рамки от первого до последнего токена
+      const firstToken = relevantTokens[0] as HTMLElement;
+      const lastToken = relevantTokens[relevantTokens.length - 1] as HTMLElement;
+      
+      const left = firstToken.offsetLeft;
+      const width = (lastToken.offsetLeft + lastToken.offsetWidth) - left;
+      const top = config.BASE_OFFSET + ((subexpr.level || 0) * config.LEVEL_HEIGHT);
+      
+      return {
+        ...subexpr,
+        left,
+        width,
+        top,
+        tokens: relevantTokens // Сохраняем ссылки на токены
+      };
+    });
+  }
+
+  /**
+   * Подсвечивает указанные токены с учётом структуры AST
+   */
+  private highlightTokens(tokens: Element[], highlight: boolean, node?: ASTNode): void {
+    if (!tokens || tokens.length === 0) return;
+    
+    // Определяем позицию оператора для бинарных операторов
+    let operatorIndex = -1;
+    if (node && (node.type === 'operator' || node.type === 'implicit_mul')) {
+      // Для оператора ищем токен с символом оператора
+      if (node.type === 'operator') {
+        operatorIndex = tokens.findIndex(token => 
+          token.textContent?.trim() === node.value
+        );
+      }
+      // Для неявного умножения оператора нет видимого
+    }
+    
+    tokens.forEach((token, index) => {
+      if (highlight) {
+        if (index === operatorIndex) {
+          // Основной оператор
+          token.classList.add('token-operator-highlight');
+        } else if (operatorIndex !== -1) {
+          // Есть оператор - делим на левый и правый операнды
+          if (index < operatorIndex) {
+            token.classList.add('token-operand-left');
+          } else {
+            token.classList.add('token-operand-right');
+          }
+        } else {
+          // Нет оператора - просто подсвечиваем
+          token.classList.add('token-hover');
+        }
+      } else {
+        token.classList.remove('token-hover', 'token-operator-highlight', 'token-operand-left', 'token-operand-right');
+      }
+    });
   }
 }
