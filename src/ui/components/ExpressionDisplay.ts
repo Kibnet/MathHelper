@@ -241,7 +241,7 @@ export class ExpressionDisplay {
     console.log('  node type:', node?.type);
     console.log('  node tokenIds:', node?.tokenIds);
     console.log('  tokens count:', tokens.length);
-    console.log('  tokens:', tokens.map((t, i) => `[${i}] ${t.textContent}`));
+    console.log('  tokens:', tokens.map((t, i) => `[${i}] ${t.textContent} (data-token-id: ${(t as HTMLElement).dataset.tokenId}, data-original-index: ${(t as HTMLElement).dataset.originalIndex})`));
     
     if (!highlight) {
       // Убираем все классы подсветки
@@ -251,21 +251,115 @@ export class ExpressionDisplay {
       return;
     }
     
+    // Для унарного минуса - выделяем минус как оператор, а выражение справа как операнд
+    if (node && node.type === 'unary') {
+      const operandChild = node.children[0];
+      
+      // Получаем ID токенов операнда из AST (фильтруем -1)
+      const operandTokenIds = new Set((operandChild.tokenIds || []).filter((id: number) => id !== -1));
+      const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
+      
+      console.log('  operandChild tokenIds:', Array.from(operandTokenIds));
+      console.log('  allTokenIds:', Array.from(allTokenIds));
+      
+      // Ищем токен унарного минуса - тот, который есть в узле, но нет в операнде
+      const operatorTokenIds = [...allTokenIds].filter((id: number) => !operandTokenIds.has(id));
+      console.log('  operatorTokenIds:', operatorTokenIds);
+      
+      const operandTokens: Element[] = [];
+      let operatorToken: Element | undefined;
+      
+      tokens.forEach((token) => {
+        const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
+        console.log(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
+        
+        if (operandTokenIds.has(originalIndex)) {
+          operandTokens.push(token);
+          console.log(`      -> Added to operandTokens`);
+        } else if (operatorTokenIds.includes(originalIndex)) {
+          operatorToken = token;
+          console.log(`      -> Set as operatorToken`);
+        } else {
+          console.log(`      -> Not matched`);
+        }
+      });
+      
+      console.log('  Result:');
+      console.log('    operator token:', operatorToken?.textContent);
+      console.log('    operand tokens:', operandTokens.map(t => t.textContent));
+      
+      // Применяем классы
+      if (operatorToken) {
+        operatorToken.classList.add('token-operator-highlight');
+        console.log(`    Applied token-operator-highlight to: ${operatorToken.textContent}`);
+      }
+      operandTokens.forEach(t => {
+        t.classList.add('token-operand-right');
+        console.log(`    Applied token-operand-right to: ${t.textContent}`);
+      });
+    } 
+    // Для групп (скобок) - выделяем скобки как оператор, а выражение внутри как операнд
+    else if (node && node.type === 'group') {
+      const operandChild = node.children[0];
+      
+      // Получаем ID токенов операнда из AST (фильтруем -1)
+      const operandTokenIds = new Set((operandChild.tokenIds || []).filter((id: number) => id !== -1));
+      const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
+      
+      console.log('  operandChild tokenIds:', Array.from(operandTokenIds));
+      console.log('  allTokenIds:', Array.from(allTokenIds));
+      
+      // Ищем токены скобок - те, которые есть в узле, но нет в операнде
+      const bracketTokenIds = [...allTokenIds].filter((id: number) => !operandTokenIds.has(id));
+      console.log('  bracketTokenIds:', bracketTokenIds);
+      
+      const operandTokens: Element[] = [];
+      const bracketTokens: Element[] = [];
+      
+      tokens.forEach((token) => {
+        const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
+        console.log(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
+        
+        if (operandTokenIds.has(originalIndex)) {
+          operandTokens.push(token);
+          console.log(`      -> Added to operandTokens`);
+        } else if (bracketTokenIds.includes(originalIndex)) {
+          bracketTokens.push(token);
+          console.log(`      -> Added to bracketTokens`);
+        } else {
+          console.log(`      -> Not matched`);
+        }
+      });
+      
+      console.log('  Result:');
+      console.log('    bracket tokens:', bracketTokens.map(t => t.textContent));
+      console.log('    operand tokens:', operandTokens.map(t => t.textContent));
+      
+      // Применяем классы - скобки как оператор, содержимое как операнд
+      bracketTokens.forEach(t => {
+        t.classList.add('token-operator-highlight');
+        console.log(`    Applied token-operator-highlight to: ${t.textContent}`);
+      });
+      operandTokens.forEach(t => {
+        t.classList.add('token-operand-right');
+        console.log(`    Applied token-operand-right to: ${t.textContent}`);
+      });
+    }
     // Для операторов и неявного умножения - выделяем оператор и операнды
-    if (node && (node.type === 'operator' || node.type === 'implicit_mul')) {
+    else if (node && (node.type === 'operator' || node.type === 'implicit_mul')) {
       const [leftChild, rightChild] = (node as any).children;
       
-      // Получаем ID токенов левого и правого операндов из AST
-      const leftTokenIds = new Set(leftChild.tokenIds || []);
-      const rightTokenIds = new Set(rightChild.tokenIds || []);
-      const allTokenIds = new Set(node.tokenIds || []);
+      // Получаем ID токенов левого и правого операндов из AST (фильтруем -1)
+      const leftTokenIds = new Set((leftChild.tokenIds || []).filter((id: number) => id !== -1));
+      const rightTokenIds = new Set((rightChild.tokenIds || []).filter((id: number) => id !== -1));
+      const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
       
       console.log('  leftChild tokenIds:', Array.from(leftTokenIds));
       console.log('  rightChild tokenIds:', Array.from(rightTokenIds));
       console.log('  allTokenIds:', Array.from(allTokenIds));
       
       // Ищем токен оператора - тот, который есть в узле, но нет ни в левом, ни в правом дочернем узле
-      const operatorTokenIds = [...allTokenIds].filter(id => !leftTokenIds.has(id) && !rightTokenIds.has(id));
+      const operatorTokenIds = [...allTokenIds].filter((id: number) => !leftTokenIds.has(id) && !rightTokenIds.has(id));
       console.log('  operatorTokenIds:', operatorTokenIds);
       
       const leftTokens: Element[] = [];
@@ -273,14 +367,20 @@ export class ExpressionDisplay {
       let operatorToken: Element | undefined;
       
       tokens.forEach((token) => {
-        const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-1');
+        const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
+        console.log(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
         
         if (leftTokenIds.has(originalIndex)) {
           leftTokens.push(token);
+          console.log(`      -> Added to leftTokens`);
         } else if (rightTokenIds.has(originalIndex)) {
           rightTokens.push(token);
+          console.log(`      -> Added to rightTokens`);
         } else if (operatorTokenIds.includes(originalIndex)) {
           operatorToken = token;
+          console.log(`      -> Set as operatorToken`);
+        } else {
+          console.log(`      -> Not matched`);
         }
       });
       
@@ -292,12 +392,23 @@ export class ExpressionDisplay {
       // Применяем классы
       if (operatorToken) {
         operatorToken.classList.add('token-operator-highlight');
+        console.log(`    Applied token-operator-highlight to: ${operatorToken.textContent}`);
       }
-      leftTokens.forEach(t => t.classList.add('token-operand-left'));
-      rightTokens.forEach(t => t.classList.add('token-operand-right'));
+      leftTokens.forEach(t => {
+        t.classList.add('token-operand-left');
+        console.log(`    Applied token-operand-left to: ${t.textContent}`);
+      });
+      rightTokens.forEach(t => {
+        t.classList.add('token-operand-right');
+        console.log(`    Applied token-operand-right to: ${t.textContent}`);
+      });
     } else {
       // Для остальных типов - просто подсвечиваем
-      tokens.forEach(token => token.classList.add('token-hover'));
+      console.log('  Applying simple hover highlight');
+      tokens.forEach(token => {
+        token.classList.add('token-hover');
+        console.log(`    Applied token-hover to: ${token.textContent}`);
+      });
     }
   }
 
