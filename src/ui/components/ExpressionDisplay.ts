@@ -145,8 +145,9 @@ export class ExpressionDisplay {
       if (labelPosition) {
         label.style.position = 'absolute';
         label.style.left = labelPosition.left + 'px';
-        label.style.width = labelPosition.width > 0 ? labelPosition.width + 'px' : 'auto';
-        label.style.textAlign = labelPosition.width > 0 ? 'center' : 'left';
+        // НЕ устанавливаем width - пусть метка занимает столько, сколько нужно для текста
+        label.style.width = 'auto';
+        label.style.textAlign = 'center';
         console.log('Applied label styles:', label.style.left, label.style.width);
       } else {
         console.warn('No label position calculated!');

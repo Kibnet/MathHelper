@@ -289,8 +289,7 @@
   font-size: 0.65rem;
   color: inherit;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Убрали overflow: hidden и text-overflow: ellipsis - они добавляли точки */
   padding: 0 4px;
   opacity: 0.8;
   pointer-events: none;
