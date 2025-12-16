@@ -9,6 +9,7 @@ export type OperatorValue = '+' | '-' | '*' | '/';
 export interface BaseNode {
   id: string;
   type: NodeType;
+  tokenIds?: number[]; // Индексы токенов, из которых создан узел
 }
 
 export interface ConstantNode extends BaseNode {

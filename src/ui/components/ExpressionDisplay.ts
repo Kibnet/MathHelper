@@ -47,6 +47,8 @@ export class ExpressionDisplay {
       
       // Добавляем уникальный ID токена
       tokenSpan.dataset.tokenId = `token_${tokenIndex}`;
+      // Добавляем originalIndex из Token объекта для точного поиска
+      tokenSpan.dataset.originalIndex = String(token.originalIndex ?? tokenIndex);
       
       // Находим реальную позицию токена в исходной строке (с учётом пробелов)
       const tokenStart = exprString.indexOf(token.value, searchPos);
@@ -158,7 +160,7 @@ export class ExpressionDisplay {
       });
       
       frame.addEventListener('mouseleave', () => {
-        this.highlightTokens((pos as any).tokens || [], false);
+        this.highlightTokens((pos as any).tokens || [], false, pos.node);
       });
       
       // Клик для показа команд
@@ -234,7 +236,12 @@ export class ExpressionDisplay {
       return;
     }
     
-    console.log('highlightTokens:', highlight, 'tokens:', tokens.map(t => (t as HTMLElement).dataset.tokenId), 'node:', node?.type);
+    console.log('=== highlightTokens ===' );
+    console.log('  highlight:', highlight);
+    console.log('  node type:', node?.type);
+    console.log('  node tokenIds:', node?.tokenIds);
+    console.log('  tokens count:', tokens.length);
+    console.log('  tokens:', tokens.map((t, i) => `[${i}] ${t.textContent}`));
     
     if (!highlight) {
       // Убираем все классы подсветки
@@ -248,48 +255,39 @@ export class ExpressionDisplay {
     if (node && (node.type === 'operator' || node.type === 'implicit_mul')) {
       const [leftChild, rightChild] = (node as any).children;
       
-      // Находим токен оператора (только для явных операторов)
-      let operatorToken: Element | undefined;
-      if (node.type === 'operator') {
-        operatorToken = tokens.find(t => {
-          const text = t.textContent || '';
-          return text[0] === node.value;
-        });
-      }
+      // Получаем ID токенов левого и правого операндов из AST
+      const leftTokenIds = new Set(leftChild.tokenIds || []);
+      const rightTokenIds = new Set(rightChild.tokenIds || []);
+      const allTokenIds = new Set(node.tokenIds || []);
       
-      // Разделяем токены на левые и правые по ID узлов
+      console.log('  leftChild tokenIds:', Array.from(leftTokenIds));
+      console.log('  rightChild tokenIds:', Array.from(rightTokenIds));
+      console.log('  allTokenIds:', Array.from(allTokenIds));
+      
+      // Ищем токен оператора - тот, который есть в узле, но нет ни в левом, ни в правом дочернем узле
+      const operatorTokenIds = [...allTokenIds].filter(id => !leftTokenIds.has(id) && !rightTokenIds.has(id));
+      console.log('  operatorTokenIds:', operatorTokenIds);
+      
       const leftTokens: Element[] = [];
       const rightTokens: Element[] = [];
+      let operatorToken: Element | undefined;
       
-      tokens.forEach(token => {
-        if (token === operatorToken) return; // Пропускаем сам оператор
+      tokens.forEach((token) => {
+        const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-1');
         
-        const tokenStart = parseInt((token as HTMLElement).dataset.start || '0');
-        const leftStart = parseInt(leftChild.id.split('_')[1] || '0');
-        const rightStart = parseInt(rightChild.id.split('_')[1] || '0');
-        
-        // Простое разделение по позиции в строке
-        if (operatorToken) {
-          const operatorPos = parseInt((operatorToken as HTMLElement).dataset.start || '0');
-          if (tokenStart < operatorPos) {
-            leftTokens.push(token);
-          } else {
-            rightTokens.push(token);
-          }
-        } else {
-          // Для implicit_mul - делим по середине
-          const midIndex = Math.floor(tokens.length / 2);
-          const midToken = tokens[midIndex] as HTMLElement;
-          const midPos = parseInt(midToken.dataset.start || '0');
-          if (tokenStart < midPos) {
-            leftTokens.push(token);
-          } else {
-            rightTokens.push(token);
-          }
+        if (leftTokenIds.has(originalIndex)) {
+          leftTokens.push(token);
+        } else if (rightTokenIds.has(originalIndex)) {
+          rightTokens.push(token);
+        } else if (operatorTokenIds.includes(originalIndex)) {
+          operatorToken = token;
         }
       });
       
-      console.log('Operator token:', operatorToken?.textContent, 'Left tokens:', leftTokens.length, 'Right tokens:', rightTokens.length);
+      console.log('  Result:');
+      console.log('    operator token:', operatorToken?.textContent);
+      console.log('    left tokens:', leftTokens.map(t => t.textContent));
+      console.log('    right tokens:', rightTokens.map(t => t.textContent));
       
       // Применяем классы
       if (operatorToken) {
@@ -300,6 +298,31 @@ export class ExpressionDisplay {
     } else {
       // Для остальных типов - просто подсвечиваем
       tokens.forEach(token => token.classList.add('token-hover'));
+    }
+  }
+
+  /**
+   * Преобразует AST узел в строку
+   */
+  private expressionToString(node: ASTNode): string {
+    // Используем ту же логику, что и в helpers
+    switch (node.type) {
+      case 'constant':
+        return String(node.value);
+      case 'variable':
+        return node.value;
+      case 'operator':
+        const [left, right] = node.children;
+        return `${this.expressionToString(left)} ${node.value} ${this.expressionToString(right)}`;
+      case 'unary':
+        return `${node.value}${this.expressionToString(node.children[0])}`;
+      case 'group':
+        return `(${this.expressionToString(node.children[0])})`;
+      case 'implicit_mul':
+        const [leftOp, rightOp] = node.children;
+        return `${this.expressionToString(leftOp)}${this.expressionToString(rightOp)}`;
+      default:
+        return '';
     }
   }
 

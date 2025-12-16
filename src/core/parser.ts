@@ -50,13 +50,23 @@ export class ExpressionParser {
       if (!token || token.type !== 'operator' || (token.value !== '+' && token.value !== '-')) {
         break;
       }
-      const op = this.consume().value as OperatorValue;
+      const opToken = this.consume();
+      const op = opToken.value as OperatorValue;
       const right = this.parseMultiplicative();
+      
+      // Собираем все tokenIds из левого и правого узлов + оператор
+      const tokenIds = [
+        ...(left.tokenIds || []),
+        opToken.originalIndex ?? -1,
+        ...(right.tokenIds || [])
+      ];
+      
       const node: OperatorNode = {
         id: generateId(),
         type: 'operator',
         value: op,
-        children: [left, right]
+        children: [left, right],
+        tokenIds
       };
       left = node;
     }
@@ -74,8 +84,15 @@ export class ExpressionParser {
       }
       const op = token.value as OperatorValue;
       const isImplicit = token.implicit || false;
-      this.consume();
+      const opToken = this.consume();
       const right = this.parseUnary();
+      
+      // Собираем tokenIds
+      const tokenIds = [
+        ...(left.tokenIds || []),
+        ...(isImplicit ? [] : [opToken.originalIndex ?? -1]), // Для implicit не добавляем оператор
+        ...(right.tokenIds || [])
+      ];
       
       // Создаем узел неявного или явного умножения
       if (isImplicit && op === '*') {
@@ -83,7 +100,8 @@ export class ExpressionParser {
           id: generateId(),
           type: 'implicit_mul',
           value: '*',
-          children: [left, right]
+          children: [left, right],
+          tokenIds
         };
         left = node;
       } else {
@@ -91,7 +109,8 @@ export class ExpressionParser {
           id: generateId(),
           type: 'operator',
           value: op,
-          children: [left, right]
+          children: [left, right],
+          tokenIds
         };
         left = node;
       }
@@ -103,13 +122,14 @@ export class ExpressionParser {
   private parseUnary(): ASTNode {
     const token = this.peek();
     if (token && token.type === 'unary' && token.value === '-') {
-      this.consume();
+      const unaryToken = this.consume();
       const operand = this.parseUnary();
       const node: UnaryNode = {
         id: generateId(),
         type: 'unary',
         value: '-',
-        children: [operand]
+        children: [operand],
+        tokenIds: [unaryToken.originalIndex ?? -1, ...(operand.tokenIds || [])]
       };
       return node;
     }
@@ -125,18 +145,19 @@ export class ExpressionParser {
 
     // Группа (скобки)
     if (token.type === 'paren' && token.value === '(') {
-      this.consume();
+      const openToken = this.consume();
       const expr = this.parseExpression();
       const closeParen = this.peek();
       if (!closeParen || closeParen.value !== ')') {
         throw new Error('Отсутствует закрывающая скобка');
       }
-      this.consume();
+      const closeToken = this.consume();
       const node: GroupNode = {
         id: generateId(),
         type: 'group',
         value: 'group',
-        children: [expr]
+        children: [expr],
+        tokenIds: [openToken.originalIndex ?? -1, ...(expr.tokenIds || []), closeToken.originalIndex ?? -1]
       };
       return node;
     }
@@ -159,7 +180,8 @@ export class ExpressionParser {
     return {
       id: generateId(),
       type: 'constant',
-      value: parseFloat(token.value)
+      value: parseFloat(token.value),
+      tokenIds: [token.originalIndex ?? -1]
     };
   }
 
@@ -168,7 +190,8 @@ export class ExpressionParser {
     return {
       id: generateId(),
       type: 'variable',
-      value: token.value
+      value: token.value,
+      tokenIds: [token.originalIndex ?? -1]
     };
   }
 

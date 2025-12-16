@@ -16,6 +16,7 @@ export interface Token {
   start: number;
   end: number;
   implicit?: boolean; // Флаг для неявного умножения
+  originalIndex?: number; // Индекс в исходном массиве токенов (до вставки implicit mul)
 }
 
 /**
@@ -121,7 +122,8 @@ export function insertImplicitMultiplication(tokens: Token[]): Token[] {
   const result: Token[] = [];
   
   for (let i = 0; i < tokens.length; i++) {
-    result.push(tokens[i]);
+    // Сохраняем исходный индекс
+    result.push({ ...tokens[i], originalIndex: i });
     
     // Проверяем, нужно ли вставить * перед следующим токеном
     if (i < tokens.length - 1) {
@@ -148,8 +150,8 @@ export function insertImplicitMultiplication(tokens: Token[]): Token[] {
           value: '*',
           start: current.end,
           end: current.end,
-          // @ts-ignore - добавляем флаг для обозначения неявного умножения
-          implicit: true
+          implicit: true,
+          originalIndex: -1 // Неявное умножение не имеет исходного индекса
         });
       }
     }
