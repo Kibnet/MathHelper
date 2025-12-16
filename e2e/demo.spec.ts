@@ -30,11 +30,11 @@ test('🎬 Демо: взаимодействие с приложением', as
   console.log('✅ Страница загружена\n');
   
   console.log('🖱️  Шаг 2: Поиск поля ввода выражения...');
-  const expressionDisplay = page.locator('#expression-display');
+  const expressionInput = page.locator('#expressionInput');
   console.log('✅ Поле найдено\n');
   
   console.log('👆 Шаг 3: Клик по полю ввода...');
-  await expressionDisplay.click();
+  await expressionInput.click();
   await page.waitForTimeout(300);
   console.log('✅ Фокус установлен\n');
   
@@ -49,17 +49,18 @@ test('🎬 Демо: взаимодействие с приложением', as
     console.log(`⌨️  Ввод выражения: "${expr}"`);
     
     // Очищаем поле
-    await page.keyboard.press('Control+A');
-    await page.keyboard.press('Backspace');
+    await page.locator('#clearBtn').click();
     
-    // Вводим новое выражение с задержкой (чтобы было видно в headed режиме)
-    await page.keyboard.type(expr, { delay: 100 });
+    // Вводим новое выражение
+    await expressionInput.fill(expr);
+    await page.locator('#buildBtn').click();
     
     // Ждем обработки
     await page.waitForTimeout(800);
     
     // Получаем отображенный текст
-    const displayedText = await expressionDisplay.textContent();
+    const expressionContainer = page.locator('#expressionContainer');
+    const displayedText = await expressionContainer.textContent();
     console.log(`   Отображено: "${displayedText}"`);
     console.log('');
   }
@@ -87,10 +88,10 @@ test('🔍 Демо: инспекция DOM и выполнение JavaScript',
       userAgent: navigator.userAgent,
       screenSize: `${window.innerWidth}x${window.innerHeight}`,
       elements: {
-        expressionDisplay: !!document.getElementById('expression-display'),
-        commandPanel: !!document.getElementById('command-panel'),
-        historyPanel: !!document.getElementById('history-panel'),
-        descriptionPanel: !!document.getElementById('description-panel'),
+        hasExpressionInput: !!document.getElementById('expressionInput'),
+        hasCommandsPanel: !!document.getElementById('commandsPanel'),
+        hasHistoryPanel: !!document.getElementById('historyPanel'),
+        hasDescriptionPanel: !!document.getElementById('descriptionPanel'),
       },
       cookies: document.cookie || 'нет cookies',
     };

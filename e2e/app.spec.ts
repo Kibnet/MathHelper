@@ -37,14 +37,17 @@ test.describe('MathHelper Application', () => {
     await page.waitForLoadState('domcontentloaded');
     
     // Проверяем заголовок страницы
-    await expect(page).toHaveTitle(/Expression Editor/i);
+    await expect(page).toHaveTitle(/Преобразователь выражений/i);
     
     // Проверяем наличие основных элементов
-    const expressionDisplay = page.locator('#expression-display');
-    await expect(expressionDisplay).toBeVisible();
+    const expressionInput = page.locator('#expressionInput');
+    await expect(expressionInput).toBeVisible();
     
-    const commandPanel = page.locator('#command-panel');
-    await expect(commandPanel).toBeVisible();
+    const commandsPanel = page.locator('#commandsPanel');
+    await expect(commandsPanel).toBeVisible();
+    
+    const expressionContainer = page.locator('#expressionContainer');
+    await expect(expressionContainer).toBeVisible();
     
     // Выводим все консольные логи в отчет теста
     if (consoleMessages.length > 0) {
@@ -75,17 +78,21 @@ test.describe('MathHelper Application', () => {
     await page.waitForLoadState('domcontentloaded');
     
     // Находим поле ввода выражения
-    const expressionDisplay = page.locator('#expression-display');
+    const expressionInput = page.locator('#expressionInput');
     
     // Вводим простое выражение
-    await expressionDisplay.click();
-    await page.keyboard.type('2x + 3');
+    await expressionInput.click();
+    await expressionInput.fill('2x + 3');
+    
+    // Нажимаем кнопку "Построить"
+    await page.locator('#buildBtn').click();
     
     // Ждем небольшую паузу для обработки
     await page.waitForTimeout(500);
     
     // Проверяем, что выражение отобразилось
-    const displayedText = await expressionDisplay.textContent();
+    const expressionContainer = page.locator('#expressionContainer');
+    const displayedText = await expressionContainer.textContent();
     console.log(`Отображенное выражение: "${displayedText}"`);
     
     // Выводим логи
@@ -99,15 +106,17 @@ test.describe('MathHelper Application', () => {
     await page.goto('/expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     
-    const expressionDisplay = page.locator('#expression-display');
+    const expressionInput = page.locator('#expressionInput');
     
     // Вводим выражение
-    await expressionDisplay.click();
-    await page.keyboard.type('x + y');
+    await expressionInput.click();
+    await expressionInput.fill('x + y');
+    await page.locator('#buildBtn').click();
     await page.waitForTimeout(500);
     
     // Наводим на первый токен (если есть подсветка)
-    const firstToken = expressionDisplay.locator('span').first();
+    const expressionContainer = page.locator('#expressionContainer');
+    const firstToken = expressionContainer.locator('span').first();
     if (await firstToken.count() > 0) {
       await firstToken.hover();
       await page.waitForTimeout(300);
@@ -136,21 +145,21 @@ test.describe('MathHelper Application', () => {
       console.log('Консольные логи:', logs);
       
       // Демонстрация взаимодействия
-      const expressionDisplay = page.locator('#expression-display');
+      const expressionInput = page.locator('#expressionInput');
       
       console.log('\nВвод выражения: "2x + 3y - 5"');
-      await expressionDisplay.click();
-      await page.keyboard.type('2x + 3y - 5', { delay: 100 });
+      await expressionInput.click();
+      await expressionInput.fill('2x + 3y - 5');
+      await page.locator('#buildBtn').click();
       
       await page.waitForTimeout(1000);
       
       console.log('\nОчистка выражения');
-      await expressionDisplay.click();
-      await page.keyboard.press('Control+A');
-      await page.keyboard.press('Backspace');
+      await page.locator('#clearBtn').click();
       
       console.log('\nВвод нового выражения: "a*b + c/d"');
-      await page.keyboard.type('a*b + c/d', { delay: 100 });
+      await expressionInput.fill('a*b + c/d');
+      await page.locator('#buildBtn').click();
       
       await page.waitForTimeout(2000);
       

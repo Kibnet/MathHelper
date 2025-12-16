@@ -59,9 +59,10 @@ test.describe('Консоль браузера и отладка', () => {
     await page.waitForLoadState('networkidle');
     
     // Взаимодействие с приложением
-    const expressionDisplay = page.locator('#expression-display');
-    await expressionDisplay.click();
-    await page.keyboard.type('2x + 3');
+    const expressionInput = page.locator('#expressionInput');
+    await expressionInput.click();
+    await expressionInput.fill('2x + 3');
+    await page.locator('#buildBtn').click();
     await page.waitForTimeout(1000);
     
     // Вывод детальной информации о логах
@@ -128,16 +129,18 @@ test.describe('Консоль браузера и отладка', () => {
       return {
         title: document.title,
         url: window.location.href,
-        hasExpressionDisplay: !!document.getElementById('expression-display'),
-        hasCommandPanel: !!document.getElementById('command-panel'),
+        hasExpressionInput: !!document.getElementById('expressionInput'),
+        hasCommandsPanel: !!document.getElementById('commandsPanel'),
+        hasExpressionContainer: !!document.getElementById('expressionContainer'),
       };
     });
     
     console.log('\n=== ИНФОРМАЦИЯ О СТРАНИЦЕ ===');
     console.log(JSON.stringify(pageInfo, null, 2));
     
-    expect(pageInfo.hasExpressionDisplay).toBe(true);
-    expect(pageInfo.hasCommandPanel).toBe(true);
+    expect(pageInfo.hasExpressionInput).toBe(true);
+    expect(pageInfo.hasCommandsPanel).toBe(true);
+    expect(pageInfo.hasExpressionContainer).toBe(true);
   });
 
   test('отладка с паузой и step-by-step выполнением', async ({ page }) => {
@@ -154,19 +157,21 @@ test.describe('Консоль браузера и отладка', () => {
     await page.waitForLoadState('domcontentloaded');
     
     console.log('Шаг 3: Поиск элемента ввода');
-    const expressionDisplay = page.locator('#expression-display');
+    const expressionInput = page.locator('#expressionInput');
     
     console.log('Шаг 4: Клик по полю ввода');
-    await expressionDisplay.click();
+    await expressionInput.click();
     
     console.log('Шаг 5: Ввод выражения "x^2 + 2x + 1"');
-    await page.keyboard.type('x^2 + 2x + 1', { delay: 50 });
+    await expressionInput.fill('x^2 + 2x + 1');
+    await page.locator('#buildBtn').click();
     
     console.log('Шаг 6: Ожидание обработки');
     await page.waitForTimeout(500);
     
     console.log('Шаг 7: Получение результата');
-    const text = await expressionDisplay.textContent();
+    const expressionContainer = page.locator('#expressionContainer');
+    const text = await expressionContainer.textContent();
     
     console.log(`\nРезультат: "${text}"`);
     console.log(`Всего консольных логов: ${logs.length}`);
@@ -185,9 +190,10 @@ test.describe('Консоль браузера и отладка', () => {
       fullPage: true 
     });
     
-    const expressionDisplay = page.locator('#expression-display');
-    await expressionDisplay.click();
-    await page.keyboard.type('2x^2 + 3x - 5');
+    const expressionInput = page.locator('#expressionInput');
+    await expressionInput.click();
+    await expressionInput.fill('2x^2 + 3x - 5');
+    await page.locator('#buildBtn').click();
     await page.waitForTimeout(500);
     
     // Скриншот после ввода
@@ -197,7 +203,8 @@ test.describe('Консоль браузера и отладка', () => {
     });
     
     // Скриншот конкретного элемента
-    await expressionDisplay.screenshot({ 
+    const expressionContainer = page.locator('#expressionContainer');
+    await expressionContainer.screenshot({ 
       path: 'playwright-report/screenshots/expression-display.png' 
     });
     

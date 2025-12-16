@@ -30,6 +30,8 @@ build/
 # Logs
 logs/
 *.log
+test-output.log
+test-debug.log
 
 # OS
 Thumbs.db

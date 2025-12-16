@@ -52,10 +52,14 @@ export default defineConfig({
   ],
 
   // Автоматический запуск dev сервера перед тестами
+  // ВАЖНО: Запустите сервер вручную перед тестами: npm run dev
+  // Автозапуск может не работать в некоторых средах
+  /*
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:8000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },
+  */
 });
