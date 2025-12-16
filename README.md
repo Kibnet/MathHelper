@@ -175,7 +175,13 @@ npm run coverage
 
 #### E2E Tests (Playwright)
 
+**ВАЖНО: Перед запуском E2E тестов запустите dev сервер!**
+
 ```bash
+# В первом терминале:
+npm run dev
+
+# Во втором терминале:
 # Run E2E tests (headless)
 npm run test:e2e
 
@@ -192,9 +198,21 @@ npm run test:e2e:debug
 npm run test:e2e:report
 ```
 
+**PowerShell:** Для корректного вывода используйте:
+```bash
+$env:FORCE_COLOR=1; npx playwright test --reporter=list
+# Или:
+.\run-e2e-tests.ps1
+```
+
 **Примечание:** Перед запуском E2E тестов убедитесь, что dev сервер запущен (`npm run dev`)
 
 Подробнее об E2E тестировании см. [e2e/README.md](./e2e/README.md)
+
+**Типичные проблемы:**
+- `ERR_CONNECTION_REFUSED` → Запустите `npm run dev`
+- Нет вывода в PowerShell → Используйте `$env:FORCE_COLOR=1; npx playwright test --reporter=list`
+- Элементы не найдены → Проверьте селекторы в тестах
 
 ### TypeScript Features
 
