@@ -39,11 +39,14 @@ export class ExpressionDisplay {
     
     // Создаём HTML с токенами и сохраняем позиции
     let searchPos = 0; // Позиция для поиска в исходной строке
-    tokens.forEach(token => {
+    tokens.forEach((token, tokenIndex) => {
       const tokenSpan = document.createElement('span');
       tokenSpan.className = 'token';
       tokenSpan.textContent = token.value;
       tokenSpan.style.color = getTokenColor(token.type);
+      
+      // Добавляем уникальный ID токена
+      tokenSpan.dataset.tokenId = `token_${tokenIndex}`;
       
       // Находим реальную позицию токена в исходной строке (с учётом пробелов)
       const tokenStart = exprString.indexOf(token.value, searchPos);
@@ -128,15 +131,29 @@ export class ExpressionDisplay {
       frame.dataset.end = pos.end.toString();
       frame.dataset.nodeId = pos.node.id;
       
-      // Создаём метку с текстом подвыражения внутри рамки
+      // Создаём метку с ГЛАВНЫМ элементом узла внутри рамки
       const label = document.createElement('span');
       label.className = 'frame-label';
-      label.textContent = pos.text;
+      label.textContent = this.getNodeLabel(pos.node);
+      
+      // Позиционируем метку под главным элементом
+      console.log('Calculating label position for:', pos.text, 'tokens:', (pos as any).tokens?.length);
+      const labelPosition = this.calculateLabelPosition(pos.node, (pos as any).tokens || [], pos.left);
+      console.log('Label position result:', labelPosition);
+      if (labelPosition) {
+        label.style.position = 'absolute';
+        label.style.left = labelPosition.left + 'px';
+        label.style.width = labelPosition.width > 0 ? labelPosition.width + 'px' : 'auto';
+        label.style.textAlign = labelPosition.width > 0 ? 'center' : 'left';
+        console.log('Applied label styles:', label.style.left, label.style.width);
+      } else {
+        console.warn('No label position calculated!');
+      }
+      
       frame.appendChild(label);
       
       // Наведение для подсветки токенов
       frame.addEventListener('mouseenter', () => {
-        console.log('Mouseenter on frame:', pos.text, 'tokens:', pos.tokens?.length || 0);
         this.highlightTokens((pos as any).tokens || [], true, pos.node);
       });
       
@@ -180,10 +197,7 @@ export class ExpressionDisplay {
         return tokenStart >= subexpr.start && tokenStart < subexpr.end;
       });
       
-      console.log(`Subexpr "${subexpr.text}" [${subexpr.start}, ${subexpr.end}): found ${relevantTokens.length} tokens`);
-      
       if (relevantTokens.length === 0) {
-        console.warn('No tokens found for subexpression:', subexpr.text);
         return {
           ...subexpr,
           left: 0,
@@ -215,39 +229,184 @@ export class ExpressionDisplay {
    * Подсвечивает указанные токены с учётом структуры AST
    */
   private highlightTokens(tokens: Element[], highlight: boolean, node?: ASTNode): void {
-    if (!tokens || tokens.length === 0) return;
-    
-    // Определяем позицию оператора для бинарных операторов
-    let operatorIndex = -1;
-    if (node && (node.type === 'operator' || node.type === 'implicit_mul')) {
-      // Для оператора ищем токен с символом оператора
-      if (node.type === 'operator') {
-        operatorIndex = tokens.findIndex(token => 
-          token.textContent?.trim() === node.value
-        );
-      }
-      // Для неявного умножения оператора нет видимого
+    if (!tokens || tokens.length === 0) {
+      console.warn('highlightTokens: no tokens provided');
+      return;
     }
     
-    tokens.forEach((token, index) => {
-      if (highlight) {
-        if (index === operatorIndex) {
-          // Основной оператор
-          token.classList.add('token-operator-highlight');
-        } else if (operatorIndex !== -1) {
-          // Есть оператор - делим на левый и правый операнды
-          if (index < operatorIndex) {
-            token.classList.add('token-operand-left');
+    console.log('highlightTokens:', highlight, 'tokens:', tokens.map(t => (t as HTMLElement).dataset.tokenId), 'node:', node?.type);
+    
+    if (!highlight) {
+      // Убираем все классы подсветки
+      tokens.forEach(token => {
+        token.classList.remove('token-hover', 'token-operator-highlight', 'token-operand-left', 'token-operand-right');
+      });
+      return;
+    }
+    
+    // Для операторов и неявного умножения - выделяем оператор и операнды
+    if (node && (node.type === 'operator' || node.type === 'implicit_mul')) {
+      const [leftChild, rightChild] = (node as any).children;
+      
+      // Находим токен оператора (только для явных операторов)
+      let operatorToken: Element | undefined;
+      if (node.type === 'operator') {
+        operatorToken = tokens.find(t => {
+          const text = t.textContent || '';
+          return text[0] === node.value;
+        });
+      }
+      
+      // Разделяем токены на левые и правые по ID узлов
+      const leftTokens: Element[] = [];
+      const rightTokens: Element[] = [];
+      
+      tokens.forEach(token => {
+        if (token === operatorToken) return; // Пропускаем сам оператор
+        
+        const tokenStart = parseInt((token as HTMLElement).dataset.start || '0');
+        const leftStart = parseInt(leftChild.id.split('_')[1] || '0');
+        const rightStart = parseInt(rightChild.id.split('_')[1] || '0');
+        
+        // Простое разделение по позиции в строке
+        if (operatorToken) {
+          const operatorPos = parseInt((operatorToken as HTMLElement).dataset.start || '0');
+          if (tokenStart < operatorPos) {
+            leftTokens.push(token);
           } else {
-            token.classList.add('token-operand-right');
+            rightTokens.push(token);
           }
         } else {
-          // Нет оператора - просто подсвечиваем
-          token.classList.add('token-hover');
+          // Для implicit_mul - делим по середине
+          const midIndex = Math.floor(tokens.length / 2);
+          const midToken = tokens[midIndex] as HTMLElement;
+          const midPos = parseInt(midToken.dataset.start || '0');
+          if (tokenStart < midPos) {
+            leftTokens.push(token);
+          } else {
+            rightTokens.push(token);
+          }
         }
-      } else {
-        token.classList.remove('token-hover', 'token-operator-highlight', 'token-operand-left', 'token-operand-right');
+      });
+      
+      console.log('Operator token:', operatorToken?.textContent, 'Left tokens:', leftTokens.length, 'Right tokens:', rightTokens.length);
+      
+      // Применяем классы
+      if (operatorToken) {
+        operatorToken.classList.add('token-operator-highlight');
       }
-    });
+      leftTokens.forEach(t => t.classList.add('token-operand-left'));
+      rightTokens.forEach(t => t.classList.add('token-operand-right'));
+    } else {
+      // Для остальных типов - просто подсвечиваем
+      tokens.forEach(token => token.classList.add('token-hover'));
+    }
+  }
+
+  /**
+   * Получает метку главного элемента узла для отображения в рамке
+   */
+  private getNodeLabel(node: ASTNode): string {
+    switch (node.type) {
+      case 'constant':
+        return String(node.value);
+      case 'variable':
+        return node.value;
+      case 'operator':
+        return node.value; // +, -, *, /
+      case 'implicit_mul':
+        return '×'; // Символ неявного умножения
+      case 'unary':
+        return node.value; // унарный минус
+      case 'group':
+        return '( )'; // Скобки
+      default:
+        return '?';
+    }
+  }
+
+  /**
+   * Вычисляет позицию метки под главным элементом
+   */
+  private calculateLabelPosition(node: ASTNode, tokens: Element[], frameLeft: number): { left: number; width: number } | null {
+    if (tokens.length === 0) return null;
+
+    console.log('calculateLabelPosition:', node.type, node.value, 'tokens:', tokens.map(t => t.textContent));
+
+    switch (node.type) {
+      case 'operator': {
+        // Находим токен оператора (используем только первый символ textContent)
+        const operatorToken = tokens.find(t => {
+          const text = t.textContent || '';
+          return text[0] === node.value;
+        });
+        console.log('Looking for operator:', node.value, 'found:', operatorToken?.textContent);
+        if (operatorToken) {
+          const htmlToken = operatorToken as HTMLElement;
+          return {
+            left: htmlToken.offsetLeft - frameLeft,
+            width: htmlToken.offsetWidth
+          };
+        }
+        break;
+      }
+      
+      case 'implicit_mul': {
+        // Позиция между первым и вторым операндами
+        if (tokens.length >= 2) {
+          const firstToken = tokens[0] as HTMLElement;
+          const secondToken = tokens[Math.floor(tokens.length / 2)] as HTMLElement;
+          const left = (firstToken.offsetLeft + firstToken.offsetWidth) - frameLeft;
+          const width = secondToken.offsetLeft - (firstToken.offsetLeft + firstToken.offsetWidth);
+          return { left, width };
+        }
+        break;
+      }
+      
+      case 'group': {
+        // Находим скобки (используем только первый символ)
+        const openBracket = tokens.find(t => (t.textContent || '')[0] === '(');
+        const closeBracket = tokens.reverse().find(t => (t.textContent || '')[0] === ')');
+        tokens.reverse(); // Возвращаем порядок
+        console.log('Looking for brackets, open:', openBracket?.textContent, 'close:', closeBracket?.textContent);
+        if (openBracket && closeBracket) {
+          const openEl = openBracket as HTMLElement;
+          const closeEl = closeBracket as HTMLElement;
+          return {
+            left: openEl.offsetLeft - frameLeft,
+            width: (closeEl.offsetLeft + closeEl.offsetWidth) - openEl.offsetLeft
+          };
+        }
+        break;
+      }
+      
+      case 'unary': {
+        // Под унарным минусом (используем только первый символ)
+        const minusToken = tokens.find(t => (t.textContent || '')[0] === '-');
+        console.log('Looking for unary minus, found:', minusToken?.textContent);
+        if (minusToken) {
+          const htmlToken = minusToken as HTMLElement;
+          return {
+            left: htmlToken.offsetLeft - frameLeft,
+            width: htmlToken.offsetWidth
+          };
+        }
+        break;
+      }
+      
+      case 'constant':
+      case 'variable': {
+        // Под числом или переменной - все токены
+        const firstToken = tokens[0] as HTMLElement;
+        const lastToken = tokens[tokens.length - 1] as HTMLElement;
+        return {
+          left: 0, // Относительно начала рамки
+          width: (lastToken.offsetLeft + lastToken.offsetWidth) - firstToken.offsetLeft
+        };
+      }
+    }
+
+    console.warn('No matching case for node type:', node.type);
+    return null;
   }
 }
