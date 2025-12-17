@@ -134,26 +134,150 @@ export class ExpressionDisplay {
       frame.dataset.nodeId = pos.node.id;
       
       // Создаём метку с ГЛАВНЫМ элементом узла внутри рамки
-      const label = document.createElement('span');
-      label.className = 'frame-label';
-      label.textContent = this.getNodeLabel(pos.node);
+      const labelContainer = document.createElement('div');
+      labelContainer.className = 'frame-label-container';
+      labelContainer.style.position = 'absolute';
+      labelContainer.style.bottom = '2px';
+      labelContainer.style.left = '0';
+      labelContainer.style.width = '100%';
+      labelContainer.style.height = 'auto';
+      labelContainer.style.pointerEvents = 'none';
       
-      // Позиционируем метку под главным элементом
-      console.log('Calculating label position for:', pos.text, 'tokens:', (pos as any).tokens?.length);
-      const labelPosition = this.calculateLabelPosition(pos.node, (pos as any).tokens || [], pos.left);
-      console.log('Label position result:', labelPosition);
-      if (labelPosition) {
-        label.style.position = 'absolute';
-        label.style.left = labelPosition.left + 'px';
-        // НЕ устанавливаем width - пусть метка занимает столько, сколько нужно для текста
-        label.style.width = 'auto';
-        label.style.textAlign = 'center';
-        console.log('Applied label styles:', label.style.left, label.style.width);
-      } else {
-        console.warn('No label position calculated!');
+      const labelText = this.getNodeLabel(pos.node);
+      
+      // Для n-арных операций создаем отдельные span для каждого символа
+      if (pos.node.type === 'operator' && pos.node.children && pos.node.children.length > 2) {
+        // Находим все токены операторов для вычисления позиций
+        const tokens = (pos as any).tokens || [];
+        const operatorTokens = tokens.filter((t: Element) => {
+          const text = t.textContent || '';
+          return text.startsWith(pos.node.value);
+        });
+        
+        // Создаем отдельный span для каждого символа оператора
+        for (let i = 0; i < labelText.length; i++) {
+          const charSpan = document.createElement('span');
+          charSpan.className = 'frame-label';
+          charSpan.textContent = labelText[i];
+          charSpan.style.fontFamily = "'Courier New', monospace";
+          charSpan.style.fontSize = '0.65rem';
+          charSpan.style.opacity = '0.8';
+          charSpan.style.position = 'absolute';
+          charSpan.style.pointerEvents = 'none';
+          
+          // Если у нас есть информация о позициях операторов, позиционируем каждый символ
+          if (operatorTokens[i]) {
+            const operatorElement = operatorTokens[i] as HTMLElement;
+            const leftPos = operatorElement.offsetLeft - pos.left;
+            charSpan.style.left = leftPos + 'px';
+          } else {
+            // Резервное позиционирование
+            charSpan.style.left = (i * 10) + 'px';
+          }
+          
+          labelContainer.appendChild(charSpan);
+        }
+      } 
+      // Для неявного умножения создаем отдельные span для каждого символа '×'
+      else if (pos.node.type === 'implicit_mul' && pos.node.children && pos.node.children.length > 2) {
+        // Находим все токены операндов для вычисления позиций
+        const tokens = (pos as any).tokens || [];
+        const operandTokens = tokens.filter((t: Element) => {
+          const text = t.textContent || '';
+          // Исключаем явные операторы
+          return !['+', '-', '*', '/'].some(op => text.startsWith(op));
+        });
+        
+        // Создаем отдельный span для каждого символа '×'
+        for (let i = 0; i < labelText.length; i++) {
+          const charSpan = document.createElement('span');
+          charSpan.className = 'frame-label';
+          charSpan.textContent = labelText[i];
+          charSpan.style.fontFamily = "'Courier New', monospace";
+          charSpan.style.fontSize = '0.65rem';
+          charSpan.style.opacity = '0.8';
+          charSpan.style.position = 'absolute';
+          charSpan.style.pointerEvents = 'none';
+          
+          // Для неявного умножения позиционируем символы между операндами
+          if (operandTokens[i] && operandTokens[i + 1]) {
+            const leftOperand = operandTokens[i] as HTMLElement;
+            const rightOperand = operandTokens[i + 1] as HTMLElement;
+            // Позиционируем символ посередине между операндами
+            const midpoint = (leftOperand.offsetLeft + leftOperand.offsetWidth + rightOperand.offsetLeft) / 2;
+            const leftPos = midpoint - pos.left - 5; // Корректируем позицию
+            charSpan.style.left = leftPos + 'px';
+          } else {
+            // Резервное позиционирование
+            charSpan.style.left = (i * 15) + 'px';
+          }
+          
+          labelContainer.appendChild(charSpan);
+        }
+      }
+      // Для групп (скобок) создаем отдельные span для каждой скобки
+      else if (pos.node.type === 'group') {
+        // Находим токены скобок для вычисления позиций
+        const tokens = (pos as any).tokens || [];
+        const bracketTokens = tokens.filter((t: Element) => {
+          const text = t.textContent || '';
+          return text.startsWith('(') || text.startsWith(')');
+        });
+        
+        // Создаем отдельный span для каждой скобки
+        for (let i = 0; i < labelText.length; i++) {
+          const charSpan = document.createElement('span');
+          charSpan.className = 'frame-label';
+          charSpan.textContent = labelText[i];
+          charSpan.style.fontFamily = "'Courier New', monospace";
+          charSpan.style.fontSize = '0.65rem';
+          charSpan.style.opacity = '0.8';
+          charSpan.style.position = 'absolute';
+          charSpan.style.pointerEvents = 'none';
+          
+          // Позиционируем каждую скобку
+          if (bracketTokens[i]) {
+            const bracketElement = bracketTokens[i] as HTMLElement;
+            const leftPos = bracketElement.offsetLeft - pos.left;
+            charSpan.style.left = leftPos + 'px';
+          } else {
+            // Резервное позиционирование
+            charSpan.style.left = (i === 0 ? 0 : pos.width - 10) + 'px';
+          }
+          
+          labelContainer.appendChild(charSpan);
+        }
+      }
+      else {
+        // Для остальных случаев используем обычный span
+        const label = document.createElement('span');
+        label.className = 'frame-label';
+        label.textContent = labelText;
+        
+        // Позиционируем метку под главным элементом
+        console.log('Calculating label position for:', pos.text, 'tokens:', (pos as any).tokens?.length);
+        const labelPosition = this.calculateLabelPosition(pos.node, (pos as any).tokens || [], pos.left);
+        console.log('Label position result:', labelPosition);
+        if (labelPosition) {
+          label.style.position = 'absolute';
+          label.style.left = labelPosition.left + 'px';
+          // Устанавливаем рассчитанную ширину для правильного выравнивания
+          label.style.width = labelPosition.width + 'px';
+          label.style.textAlign = 'left'; // Выравниваем по левому краю для точного позиционирования
+          console.log('Applied label styles:', label.style.left, label.style.width);
+        } else {
+          console.warn('No label position calculated!');
+          // Резервное позиционирование
+          label.style.position = 'absolute';
+          label.style.left = '0px';
+          label.style.width = 'auto';
+          label.style.textAlign = 'center';
+        }
+        
+        labelContainer.appendChild(label);
       }
       
-      frame.appendChild(label);
+      frame.appendChild(labelContainer);
       
       // Наведение для подсветки токенов
       frame.addEventListener('mouseenter', () => {
@@ -483,39 +607,10 @@ export class ExpressionDisplay {
   }
 
   /**
-   * Преобразует AST узел в строку
-   */
-  private expressionToString(node: ASTNode): string {
-    // Используем ту же логику, что и в helpers
-    switch (node.type) {
-      case 'constant':
-        return String(node.value);
-      case 'variable':
-        return node.value;
-      case 'operator':
-        const [left, right] = node.children;
-        return `${this.expressionToString(left)} ${node.value} ${this.expressionToString(right)}`;
-      case 'unary':
-        return `${node.value}${this.expressionToString(node.children[0])}`;
-      case 'group':
-        return `(${this.expressionToString(node.children[0])})`;
-      case 'implicit_mul':
-        const [leftOp, rightOp] = node.children;
-        return `${this.expressionToString(leftOp)}${this.expressionToString(rightOp)}`;
-      default:
-        return '';
-    }
-  }
-
-  /**
-   * Получает метку главного элемента узла для отображения в рамке
+   * Преобразует AST узел в строку для отображения в метке
    */
   private getNodeLabel(node: ASTNode): string {
     switch (node.type) {
-      case 'constant':
-        return String(node.value);
-      case 'variable':
-        return node.value;
       case 'operator':
         // Для n-арных операций показываем все операторы
         if (node.children && node.children.length > 2) {
@@ -528,17 +623,30 @@ export class ExpressionDisplay {
             return '*'.repeat(node.children.length - 1);
           }
         }
-        return node.value; // +, -, *, /
+        return node.value;
+      
       case 'implicit_mul':
-        // Для неявного умножения с несколькими операндами показываем символы ×
+        // Для n-арных неявных умножений показываем символы ×
         if (node.children && node.children.length > 2) {
+          // Показываем × для каждого неявного умножения между операндами
           return '×'.repeat(node.children.length - 1);
         }
-        return '×'; // Символ неявного умножения
-      case 'unary':
-        return node.value; // унарный минус
+        // Для бинарного неявного умножения показываем один символ
+        return '×';
+      
       case 'group':
-        return '( )'; // Скобки
+        // Для групп показываем скобки
+        return '()';
+      
+      case 'unary':
+        // Для унарного минуса показываем -
+        return '-';
+      
+      case 'constant':
+      case 'variable':
+        // Для чисел и переменных показываем значение
+        return String(node.value);
+      
       default:
         return '?';
     }
@@ -555,32 +663,40 @@ export class ExpressionDisplay {
       case 'operator': {
         // Для n-арных операций (более 2 операндов) находим все токены операторов
         if (node.children && node.children.length > 2) {
-          // Находим все токены операторов
+          // Находим все токены операторов (ищем по содержимому, игнорируя суффиксы)
           const operatorTokens = tokens.filter(t => {
             const text = t.textContent || '';
-            return text === node.value;
-          });
+            // Ищем оператор в начале текста (до возможного суффикса типа "Оператор")
+            return text.startsWith(node.value);
+          }).map(t => t as HTMLElement);
           
           console.log('Looking for n-ary operators:', node.value, 'found:', operatorTokens.map(t => t.textContent));
           
           if (operatorTokens.length > 0) {
-            // Используем позицию первого оператора и ширину, достаточную для всех операторов
-            const firstOperator = operatorTokens[0] as HTMLElement;
-            // Вычисляем общую ширину как расстояние от первого до последнего оператора плюс ширина последнего
-            const lastOperator = operatorTokens[operatorTokens.length - 1] as HTMLElement;
+            // Для точного выравнивания каждого символа в метке с каждым оператором в выражении
+            // Используем позицию первого оператора как базовую точку
+            const firstOperator = operatorTokens[0];
+            // Ширина метки рассчитывается для размещения всех символов с учетом их позиций
+            const lastOperator = operatorTokens[operatorTokens.length - 1];
             const totalWidth = (lastOperator.offsetLeft + lastOperator.offsetWidth) - firstOperator.offsetLeft;
             
+            // Позиционируем метку относительно фрейма
+            // Для n-арных операций позиционируем метку так, чтобы она была центрирована
+            // над всеми операторами
+            const framePosition = firstOperator.offsetLeft - frameLeft;
+            
             return {
-              left: firstOperator.offsetLeft - frameLeft,
+              left: framePosition,
               width: totalWidth
             };
           }
         } else {
           // Для бинарных операций - старая логика
-          // Находим токен оператора (используем только первый символ textContent)
+          // Находим токен оператора (ищем по содержимому, игнорируя суффиксы)
           const operatorToken = tokens.find(t => {
             const text = t.textContent || '';
-            return text[0] === node.value;
+            // Ищем оператор в начале текста (до возможного суффикса типа "Оператор")
+            return text.startsWith(node.value);
           });
           console.log('Looking for operator:', node.value, 'found:', operatorToken?.textContent);
           if (operatorToken) {
@@ -595,21 +711,32 @@ export class ExpressionDisplay {
       }
       
       case 'implicit_mul': {
-        // Для n-арных неявных умножений находим все токены операторов
+        // Для n-арных неявных умножений
         if (node.children && node.children.length > 2) {
-          // Для неявного умножения с несколькими операндами позиционируем метку по всем операторам
-          if (tokens.length >= 2) {
-            // Находим первый и последний токены операндов
-            const firstToken = tokens[0] as HTMLElement;
-            const lastToken = tokens[tokens.length - 1] as HTMLElement;
+          // Находим все токены операторов (операнды для неявного умножения)
+          const operandTokens = tokens.filter(t => {
+            const text = t.textContent || '';
+            // Исключаем явные операторы
+            return !['+', '-', '*', '/'].some(op => text.startsWith(op));
+          }).map(t => t as HTMLElement);
+          
+          if (operandTokens.length >= 2) {
+            // Для неявного умножения позиционируем метку по центру между первым и последним операндом
+            const firstOperand = operandTokens[0];
+            const lastOperand = operandTokens[operandTokens.length - 1];
             
-            // Позиция между первым и последним токеном
-            const totalWidth = (lastToken.offsetLeft + lastToken.offsetWidth) - firstToken.offsetLeft;
-            const left = firstToken.offsetLeft - frameLeft;
+            // Вычисляем центральную позицию
+            const totalWidth = (lastOperand.offsetLeft + lastOperand.offsetWidth) - firstOperand.offsetLeft;
+            const center = firstOperand.offsetLeft + totalWidth / 2;
+            
+            // Для n-1 операторов ×, позиционируем по центру
+            const operatorCount = node.children.length - 1;
+            const labelWidth = operatorCount * 10; // Примерная ширина для ×××
+            const left = center - labelWidth / 2 - frameLeft;
             
             return { 
               left, 
-              width: totalWidth
+              width: labelWidth
             };
           }
         } else {
@@ -639,9 +766,9 @@ export class ExpressionDisplay {
       }
       
       case 'group': {
-        // Находим скобки (используем только первый символ)
-        const openBracket = tokens.find(t => (t.textContent || '')[0] === '(');
-        const closeBracket = tokens.reverse().find(t => (t.textContent || '')[0] === ')');
+        // Находим скобки (ищем по содержимому, игнорируя суффиксы)
+        const openBracket = tokens.find(t => (t.textContent || '').startsWith('('));
+        const closeBracket = tokens.reverse().find(t => (t.textContent || '').startsWith(')'));
         tokens.reverse(); // Возвращаем порядок
         console.log('Looking for brackets, open:', openBracket?.textContent, 'close:', closeBracket?.textContent);
         if (openBracket && closeBracket) {
@@ -656,8 +783,8 @@ export class ExpressionDisplay {
       }
       
       case 'unary': {
-        // Под унарным минусом (используем только первый символ)
-        const minusToken = tokens.find(t => (t.textContent || '')[0] === '-');
+        // Под унарным минусом (ищем по содержимому, игнорируя суффиксы)
+        const minusToken = tokens.find(t => (t.textContent || '').startsWith('-'));
         console.log('Looking for unary minus, found:', minusToken?.textContent);
         if (minusToken) {
           const htmlToken = minusToken as HTMLElement;

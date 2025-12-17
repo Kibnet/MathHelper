@@ -296,6 +296,17 @@
   position: absolute; /* Добавляем абсолютное позиционирование */
 }
 
+/* Контейнер для меток */
+.frame-label-container {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+
+.expression-range:hover .frame-label,
 .expression-range:hover .frame-label {
   opacity: 1;
   font-weight: bold;

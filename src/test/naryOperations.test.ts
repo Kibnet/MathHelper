@@ -140,4 +140,43 @@ describe('N-ary Operations Highlighting', () => {
     // Для n-арного умножения с 4 операндами должно быть 3 знака *
     expect(label).toBe('***');
   });
+
+  // Новый тест для проверки правильного позиционирования меток
+  it('should position labels correctly for n-ary operations', () => {
+    // Создаём тестовое выражение с n-арным сложением
+    const parser = new ExpressionParser('a + b + c + d');
+    const ast = parser.parse();
+    
+    // Создаём компонент отображения
+    const display = new ExpressionDisplay('test-container');
+    
+    // Рендерим выражение
+    display.render('a + b + c + d', ast);
+    
+    // Получаем контейнер с фреймами
+    const rangesContainer = document.querySelector('.expression-ranges');
+    expect(rangesContainer).toBeTruthy();
+    
+    // Находим фрейм для выражения a + b + c + d
+    const frame = Array.from(rangesContainer!.children).find(el => 
+      el instanceof HTMLElement && el.dataset.text === 'a + b + c + d'
+    ) as HTMLElement;
+    
+    expect(frame).toBeTruthy();
+    
+    // Проверяем, что у фрейма есть контейнер для меток
+    const labelContainer = frame.querySelector('.frame-label-container');
+    expect(labelContainer).toBeTruthy();
+    
+    // Проверяем, что контейнер содержит символы метки
+    const charSpans = labelContainer!.querySelectorAll('.frame-label');
+    expect(charSpans.length).toBe(3); // Три знака + для четырех операндов
+    
+    // Проверяем содержимое символов
+    const charTexts = Array.from(charSpans).map(span => span.textContent);
+    expect(charTexts).toEqual(['+', '+', '+']);
+    
+    // Проверяем базовое позиционирование (должно быть задано)
+    expect(labelContainer!.style.position).toBe('absolute');
+  });
 });
