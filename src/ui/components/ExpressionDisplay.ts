@@ -348,61 +348,130 @@ export class ExpressionDisplay {
     }
     // Для операторов и неявного умножения - выделяем оператор и операнды
     else if (node && (node.type === 'operator' || node.type === 'implicit_mul')) {
-      const [leftChild, rightChild] = (node as any).children;
+      const children = (node as any).children;
       
-      // Получаем ID токенов левого и правого операндов из AST (фильтруем -1)
-      const leftTokenIds = new Set((leftChild.tokenIds || []).filter((id: number) => id !== -1));
-      const rightTokenIds = new Set((rightChild.tokenIds || []).filter((id: number) => id !== -1));
-      const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
-      
-      console.log('  leftChild tokenIds:', Array.from(leftTokenIds));
-      console.log('  rightChild tokenIds:', Array.from(rightTokenIds));
-      console.log('  allTokenIds:', Array.from(allTokenIds));
-      
-      // Ищем токен оператора - тот, который есть в узле, но нет ни в левом, ни в правом дочернем узле
-      const operatorTokenIds = [...allTokenIds].filter((id: number) => !leftTokenIds.has(id) && !rightTokenIds.has(id));
-      console.log('  operatorTokenIds:', operatorTokenIds);
-      
-      const leftTokens: Element[] = [];
-      const rightTokens: Element[] = [];
-      let operatorToken: Element | undefined;
-      
-      tokens.forEach((token) => {
-        const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
-        console.log(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
+      // Для n-арных операций (более 2 операндов)
+      if (children && children.length > 2) {
+        // Получаем все ID токенов операндов из AST (фильтруем -1)
+        const operandTokenIdSets: Set<number>[] = [];
+        const allOperandTokenIds = new Set<number>();
         
-        if (leftTokenIds.has(originalIndex)) {
-          leftTokens.push(token);
-          console.log(`      -> Added to leftTokens`);
-        } else if (rightTokenIds.has(originalIndex)) {
-          rightTokens.push(token);
-          console.log(`      -> Added to rightTokens`);
-        } else if (operatorTokenIds.includes(originalIndex)) {
-          operatorToken = token;
-          console.log(`      -> Set as operatorToken`);
-        } else {
-          console.log(`      -> Not matched`);
+        children.forEach((child: ASTNode) => {
+          const childTokenIds = new Set((child.tokenIds || []).filter((id: number) => id !== -1));
+          operandTokenIdSets.push(childTokenIds);
+          childTokenIds.forEach(id => allOperandTokenIds.add(id));
+        });
+        
+        const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
+        
+        console.log('  operandTokenIdSets:', operandTokenIdSets.map(set => Array.from(set)));
+        console.log('  allOperandTokenIds:', Array.from(allOperandTokenIds));
+        console.log('  allTokenIds:', Array.from(allTokenIds));
+        
+        // Ищем токены операторов - те, которые есть в узле, но нет в операндах
+        const operatorTokenIds = [...allTokenIds].filter((id: number) => !allOperandTokenIds.has(id));
+        console.log('  operatorTokenIds:', operatorTokenIds);
+        
+        const operandTokensArrays: Element[][] = children.map(() => [] as Element[]);
+        const operatorTokens: Element[] = [];
+        
+        tokens.forEach((token) => {
+          const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
+          console.log(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
+          
+          // Проверяем, является ли токен оператором
+          if (operatorTokenIds.includes(originalIndex)) {
+            operatorTokens.push(token);
+            console.log(`      -> Added to operatorTokens`);
+          } else {
+            // Проверяем, к какому операнду относится токен
+            operandTokenIdSets.forEach((operandTokenIds, operandIndex) => {
+              if (operandTokenIds.has(originalIndex)) {
+                operandTokensArrays[operandIndex].push(token);
+                console.log(`      -> Added to operandTokens[${operandIndex}]`);
+              }
+            });
+          }
+        });
+        
+        console.log('  Result:');
+        console.log('    operator tokens:', operatorTokens.map(t => t.textContent));
+        operandTokensArrays.forEach((operandTokens, i) => {
+          console.log(`    operand[${i}] tokens:`, operandTokens.map(t => t.textContent));
+        });
+        
+        // Применяем классы - все операторы выделяем зеленой рамкой
+        operatorTokens.forEach(token => {
+          token.classList.add('token-operator-highlight');
+          console.log(`    Applied token-operator-highlight to: ${token.textContent}`);
+        });
+        
+        // Поочередно подсвечиваем операнды (чередующиеся цвета)
+        operandTokensArrays.forEach((operandTokens, i) => {
+          const highlightClass = i % 2 === 0 ? 'token-operand-left' : 'token-operand-right';
+          operandTokens.forEach(t => {
+            t.classList.add(highlightClass);
+            console.log(`    Applied ${highlightClass} to: ${t.textContent}`);
+          });
+        });
+      } else {
+        // Для бинарных операций - старая логика
+        const [leftChild, rightChild] = children;
+        
+        // Получаем ID токенов левого и правого операндов из AST (фильтруем -1)
+        const leftTokenIds = new Set((leftChild.tokenIds || []).filter((id: number) => id !== -1));
+        const rightTokenIds = new Set((rightChild.tokenIds || []).filter((id: number) => id !== -1));
+        const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
+        
+        console.log('  leftChild tokenIds:', Array.from(leftTokenIds));
+        console.log('  rightChild tokenIds:', Array.from(rightTokenIds));
+        console.log('  allTokenIds:', Array.from(allTokenIds));
+        
+        // Ищем токен оператора - тот, который есть в узле, но нет ни в левом, ни в правом дочернем узле
+        const operatorTokenIds = [...allTokenIds].filter((id: number) => !leftTokenIds.has(id) && !rightTokenIds.has(id));
+        console.log('  operatorTokenIds:', operatorTokenIds);
+        
+        const leftTokens: Element[] = [];
+        const rightTokens: Element[] = [];
+        let operatorToken: Element | undefined;
+        
+        tokens.forEach((token) => {
+          const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
+          console.log(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
+          
+          if (leftTokenIds.has(originalIndex)) {
+            leftTokens.push(token);
+            console.log(`      -> Added to leftTokens`);
+          } else if (rightTokenIds.has(originalIndex)) {
+            rightTokens.push(token);
+            console.log(`      -> Added to rightTokens`);
+          } else if (operatorTokenIds.includes(originalIndex)) {
+            operatorToken = token;
+            console.log(`      -> Set as operatorToken`);
+          } else {
+            console.log(`      -> Not matched`);
+          }
+        });
+        
+        console.log('  Result:');
+        console.log('    operator token:', operatorToken?.textContent);
+        console.log('    left tokens:', leftTokens.map(t => t.textContent));
+        console.log('    right tokens:', rightTokens.map(t => t.textContent));
+        
+        // Применяем классы
+        if (operatorToken) {
+          operatorToken.classList.add('token-operator-highlight');
+          console.log(`    Applied token-operator-highlight to: ${operatorToken.textContent}`);
         }
-      });
-      
-      console.log('  Result:');
-      console.log('    operator token:', operatorToken?.textContent);
-      console.log('    left tokens:', leftTokens.map(t => t.textContent));
-      console.log('    right tokens:', rightTokens.map(t => t.textContent));
-      
-      // Применяем классы
-      if (operatorToken) {
-        operatorToken.classList.add('token-operator-highlight');
-        console.log(`    Applied token-operator-highlight to: ${operatorToken.textContent}`);
+        leftTokens.forEach(t => {
+          t.classList.add('token-operand-left');
+          console.log(`    Applied token-operand-left to: ${t.textContent}`);
+        });
+        rightTokens.forEach(t => {
+          t.classList.add('token-operand-right');
+          console.log(`    Applied token-operand-right to: ${t.textContent}`);
+        });
       }
-      leftTokens.forEach(t => {
-        t.classList.add('token-operand-left');
-        console.log(`    Applied token-operand-left to: ${t.textContent}`);
-      });
-      rightTokens.forEach(t => {
-        t.classList.add('token-operand-right');
-        console.log(`    Applied token-operand-right to: ${t.textContent}`);
-      });
     } else {
       // Для остальных типов - просто подсвечиваем
       console.log('  Applying simple hover highlight');
@@ -448,8 +517,23 @@ export class ExpressionDisplay {
       case 'variable':
         return node.value;
       case 'operator':
+        // Для n-арных операций показываем все операторы
+        if (node.children && node.children.length > 2) {
+          // Для сложения показываем все +
+          if (node.value === '+') {
+            return '+'.repeat(node.children.length - 1);
+          }
+          // Для умножения показываем все *
+          if (node.value === '*') {
+            return '*'.repeat(node.children.length - 1);
+          }
+        }
         return node.value; // +, -, *, /
       case 'implicit_mul':
+        // Для неявного умножения с несколькими операндами показываем символы ×
+        if (node.children && node.children.length > 2) {
+          return '×'.repeat(node.children.length - 1);
+        }
         return '×'; // Символ неявного умножения
       case 'unary':
         return node.value; // унарный минус
@@ -459,7 +543,6 @@ export class ExpressionDisplay {
         return '?';
     }
   }
-
   /**
    * Вычисляет позицию метки под главным элементом
    */
@@ -470,43 +553,87 @@ export class ExpressionDisplay {
 
     switch (node.type) {
       case 'operator': {
-        // Находим токен оператора (используем только первый символ textContent)
-        const operatorToken = tokens.find(t => {
-          const text = t.textContent || '';
-          return text[0] === node.value;
-        });
-        console.log('Looking for operator:', node.value, 'found:', operatorToken?.textContent);
-        if (operatorToken) {
-          const htmlToken = operatorToken as HTMLElement;
-          return {
-            left: htmlToken.offsetLeft - frameLeft,
-            width: htmlToken.offsetWidth
-          };
+        // Для n-арных операций (более 2 операндов) находим все токены операторов
+        if (node.children && node.children.length > 2) {
+          // Находим все токены операторов
+          const operatorTokens = tokens.filter(t => {
+            const text = t.textContent || '';
+            return text === node.value;
+          });
+          
+          console.log('Looking for n-ary operators:', node.value, 'found:', operatorTokens.map(t => t.textContent));
+          
+          if (operatorTokens.length > 0) {
+            // Используем позицию первого оператора и ширину, достаточную для всех операторов
+            const firstOperator = operatorTokens[0] as HTMLElement;
+            // Вычисляем общую ширину как расстояние от первого до последнего оператора плюс ширина последнего
+            const lastOperator = operatorTokens[operatorTokens.length - 1] as HTMLElement;
+            const totalWidth = (lastOperator.offsetLeft + lastOperator.offsetWidth) - firstOperator.offsetLeft;
+            
+            return {
+              left: firstOperator.offsetLeft - frameLeft,
+              width: totalWidth
+            };
+          }
+        } else {
+          // Для бинарных операций - старая логика
+          // Находим токен оператора (используем только первый символ textContent)
+          const operatorToken = tokens.find(t => {
+            const text = t.textContent || '';
+            return text[0] === node.value;
+          });
+          console.log('Looking for operator:', node.value, 'found:', operatorToken?.textContent);
+          if (operatorToken) {
+            const htmlToken = operatorToken as HTMLElement;
+            return {
+              left: htmlToken.offsetLeft - frameLeft,
+              width: htmlToken.offsetWidth
+            };
+          }
         }
         break;
       }
       
       case 'implicit_mul': {
-        // Для неявного умножения позиционируем метку между операндами
-        if (tokens.length >= 2) {
-          // Находим токены операндов
-          const firstToken = tokens[0] as HTMLElement;
-          // Ищем токен, который соответствует началу второго операнда
-          let secondToken = tokens.find((t, i) => i > 0) as HTMLElement;
-          
-          // Если не нашли второй токен, используем последний
-          if (!secondToken) {
-            secondToken = tokens[tokens.length - 1] as HTMLElement;
+        // Для n-арных неявных умножений находим все токены операторов
+        if (node.children && node.children.length > 2) {
+          // Для неявного умножения с несколькими операндами позиционируем метку по всем операторам
+          if (tokens.length >= 2) {
+            // Находим первый и последний токены операндов
+            const firstToken = tokens[0] as HTMLElement;
+            const lastToken = tokens[tokens.length - 1] as HTMLElement;
+            
+            // Позиция между первым и последним токеном
+            const totalWidth = (lastToken.offsetLeft + lastToken.offsetWidth) - firstToken.offsetLeft;
+            const left = firstToken.offsetLeft - frameLeft;
+            
+            return { 
+              left, 
+              width: totalWidth
+            };
           }
-          
-          // Позиция между первым и вторым токенами
-          const midpoint = (firstToken.offsetLeft + firstToken.offsetWidth + secondToken.offsetLeft) / 2;
-          const left = midpoint - frameLeft - 10; // Центрируем метку (примерно 20px ширина)
-          
-          return { 
-            left, 
-            width: 20 // Фиксированная ширина для символа ×
-          };
+        } else {
+          // Для неявного умножения позиционируем метку между операндами
+          if (tokens.length >= 2) {
+            // Находим токены операндов
+            const firstToken = tokens[0] as HTMLElement;
+            // Ищем токен, который соответствует началу второго операнда
+            let secondToken = tokens.find((t, i) => i > 0) as HTMLElement;
+            
+            // Если не нашли второй токен, используем последний
+            if (!secondToken) {
+              secondToken = tokens[tokens.length - 1] as HTMLElement;
+            }
+            
+            // Позиция между первым и вторым токенами
+            const midpoint = (firstToken.offsetLeft + firstToken.offsetWidth + secondToken.offsetLeft) / 2;
+            const left = midpoint - frameLeft - 10; // Центрируем метку (примерно 20px ширина)
+            
+            return { 
+              left, 
+              width: 20 // Фиксированная ширина для символа ×
+            };
+          }
         }
         break;
       }
