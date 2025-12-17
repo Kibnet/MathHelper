@@ -1200,4 +1200,118 @@ test.describe('Тестирование трансформаций на вирт
       consoleErrors.forEach(err => console.error(err));
     }
   });
+
+  test('БАГ 5: фреймы после трансформации должны совпадать с фреймами после пересборки', async ({ page }) => {
+    console.log('\n=== ТЕСТ: БАГ несоответствия фреймов после трансформации ===');
+    
+    await page.goto('/expression-editor-modular.html');
+    await expect(page).toHaveTitle('Преобразователь выражений');
+    
+    const expressionInput = page.locator('#expressionInput');
+    const commandsPanel = page.locator('#commandsPanel');
+    
+    // Тест 1: abc -> ab * c
+    console.log('\n--- Тест 1: abc -> ab * c ---');
+    await expressionInput.click();
+    await expressionInput.fill('abc');
+    console.log('Введено выражение: abc');
+    
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    
+    // Выбираем фрейм ab
+    const frameAb = page.locator('.expression-range[data-text="ab"]');
+    await expect(frameAb).toBeVisible();
+    await frameAb.click();
+    await page.waitForTimeout(300);
+    
+    // Применяем раскрытие в явное умножение
+    const expandCommand = commandsPanel.locator('.command-item').filter({
+      hasText: /раскрыть.*явн/i
+    });
+    await expect(expandCommand).toBeVisible();
+    await expandCommand.first().click();
+    await page.waitForTimeout(500);
+    
+    // Получаем структуру фреймов после трансформации
+    const framesAfterTransform1 = await page.locator('.expression-range').evaluateAll(frames => 
+      frames.map(f => ({
+        text: f.getAttribute('data-text'),
+        type: f.getAttribute('data-type'),
+        nodeId: f.getAttribute('data-node-id')
+      }))
+    );
+    console.log('Фреймы после трансформации (ab * c):', JSON.stringify(framesAfterTransform1, null, 2));
+    
+    // Нажимаем Построить снова
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    
+    // Получаем структуру фреймов после пересборки
+    const framesAfterRebuild1 = await page.locator('.expression-range').evaluateAll(frames => 
+      frames.map(f => ({
+        text: f.getAttribute('data-text'),
+        type: f.getAttribute('data-type')
+        // nodeId не сравниваем - он может меняться
+      }))
+    );
+    console.log('Фреймы после пересборки (ab * c):', JSON.stringify(framesAfterRebuild1, null, 2));
+    
+    // Сравниваем структуры (без nodeId)
+    expect(framesAfterRebuild1).toEqual(framesAfterTransform1.map(f => ({ text: f.text, type: f.type })));
+    
+    // Тест 2: abc -> a * bc
+    console.log('\n--- Тест 2: abc -> a * bc ---');
+    await page.locator('#clearBtn').click();
+    await page.waitForTimeout(300);
+    
+    await expressionInput.click();
+    await expressionInput.fill('abc');
+    console.log('Введено выражение: abc');
+    
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    
+    // Выбираем фрейм bc
+    const frameBc = page.locator('.expression-range[data-text="bc"]');
+    await expect(frameBc).toBeVisible();
+    await frameBc.click();
+    await page.waitForTimeout(300);
+    
+    // Применяем раскрытие в явное умножение
+    const expandCommand2 = commandsPanel.locator('.command-item').filter({
+      hasText: /раскрыть.*явн/i
+    });
+    await expect(expandCommand2).toBeVisible();
+    await expandCommand2.first().click();
+    await page.waitForTimeout(500);
+    
+    // Получаем структуру фреймов после трансформации
+    const framesAfterTransform2 = await page.locator('.expression-range').evaluateAll(frames => 
+      frames.map(f => ({
+        text: f.getAttribute('data-text'),
+        type: f.getAttribute('data-type'),
+        nodeId: f.getAttribute('data-node-id')
+      }))
+    );
+    console.log('Фреймы после трансформации (a * bc):', JSON.stringify(framesAfterTransform2, null, 2));
+    
+    // Нажимаем Построить снова
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    
+    // Получаем структуру фреймов после пересборки
+    const framesAfterRebuild2 = await page.locator('.expression-range').evaluateAll(frames => 
+      frames.map(f => ({
+        text: f.getAttribute('data-text'),
+        type: f.getAttribute('data-type')
+      }))
+    );
+    console.log('Фреймы после пересборки (a * bc):', JSON.stringify(framesAfterRebuild2, null, 2));
+    
+    // Сравниваем структуры (без nodeId)
+    expect(framesAfterRebuild2).toEqual(framesAfterTransform2.map(f => ({ text: f.text, type: f.type })));
+    
+    console.log('✅ Фреймы после трансформации совпадают с фреймами после пересборки');
+  });
 });

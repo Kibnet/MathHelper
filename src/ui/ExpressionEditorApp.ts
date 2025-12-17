@@ -221,19 +221,16 @@ export class ExpressionEditorApp {
       
       const newExpr = expressionToString(newRootNode);
       
-      // Обновляем состояние
-      this.currentNode = newRootNode;
-      this.currentExpression = newExpr;
+      // Показываем описание
+      this.descriptionPanel.showRule(rule);
       
       // Добавляем в историю
       this.historyPanel.addState(newExpr, rule.name, newRootNode);
       
-      // Показываем описание
-      this.descriptionPanel.showRule(rule);
-      
-      // Обновляем отображение
+      // ИСПРАВЛЕНИЕ БАГ 5: Производим полную пересборку вместо ручной модификации фреймов
+      // Это гарантирует что фреймы после трансформации идентичны фреймам после нажатия "Построить"
       this.expressionInput.value = newExpr;
-      this.expressionDisplay.render(newExpr, newRootNode);
+      this.buildExpression();
       
       // Очищаем панель команд
       this.commandPanel.clear();

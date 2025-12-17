@@ -3,7 +3,7 @@
  * Разбирает математические выражения в AST (абстрактное синтаксическое дерево)
  */
 
-import type { ASTNode, ConstantNode, VariableNode, OperatorNode, UnaryNode, GroupNode, OperatorValue, ImplicitMulNode } from '../types/index.js';
+import type { ASTNode, ConstantNode, VariableNode, OperatorNode, UnaryNode, GroupNode, ImplicitMulNode } from '../types/index.js';
 import { tokenize, insertImplicitMultiplication, type Token } from '../utils/tokenizer.js';
 
 let nodeIdCounter = 0;
@@ -237,9 +237,8 @@ export class ExpressionParser {
           // implicitFlags[i] - оператор между operands[i] и operands[i+1]
           // Например: a*bc где i=1, j=2 → операнды [b, c] = operands.slice(1, 3)
           const implicitOperands = operands.slice(i, j + 1);
-          const implicitOpIndices = operatorIndices.slice(i, j);
           
-          const implicitNode = this.createImplicitMultNode(implicitOperands, implicitOpIndices);
+          const implicitNode = this.createImplicitMultNode(implicitOperands);
           
           // Заменяем операнды на один узел
           // operands = [a, b, c] → [a, implicit_mul(b,c)]
@@ -275,7 +274,7 @@ export class ExpressionParser {
     });
     
     if (allImplicit) {
-      return this.createImplicitMultNode(operands, operatorIndices);
+      return this.createImplicitMultNode(operands);
     } else {
       // Создаём n-арный узел явного умножения
       const node: OperatorNode = {
@@ -292,7 +291,7 @@ export class ExpressionParser {
   /**
    * Создаёт узел неявного умножения
    */
-  private createImplicitMultNode(operands: ASTNode[], operatorIndices: number[]): ImplicitMulNode {
+  private createImplicitMultNode(operands: ASTNode[]): ImplicitMulNode {
     const allTokenIds: number[] = [];
     operands.forEach((operand) => {
       allTokenIds.push(...(operand.tokenIds || []));
