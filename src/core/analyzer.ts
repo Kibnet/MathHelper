@@ -10,6 +10,7 @@ import { expressionToString } from '../utils/helpers.js';
 
 /**
  * Извлечь все узлы из AST дерева с их текстовыми позициями
+ * Для n-арных операций генерируются фреймы соседних пар
  */
 export function extractNodesFromAST(rootNode: ASTNode, fullExpressionString: string): Subexpression[] {
   const subexpressions: Subexpression[] = [];
@@ -44,6 +45,58 @@ export function extractNodesFromAST(rootNode: ASTNode, fullExpressionString: str
         length: nodeText.length,
         rules: rules
       });
+    }
+    
+    // Для n-арных операций генерируем фреймы для соседних пар
+    if ((node.type === 'operator' || node.type === 'implicit_mul') && 
+        node.children.length > 2) {
+      // Генерируем парные подвыражения
+      for (let i = 0; i < node.children.length - 1; i++) {
+        const leftChild = node.children[i];
+        const rightChild = node.children[i + 1];
+        
+        const leftText = nodeTextMap.get(leftChild.id) || '';
+        const rightText = nodeTextMap.get(rightChild.id) || '';
+        
+        // Формируем текст пары
+        let pairText = '';
+        if (node.type === 'implicit_mul') {
+          pairText = `${leftText}${rightText}`; // Неявное умножение без оператора
+        } else if (node.value === '+') {
+          // Для сложения нужно учесть скрытые унарные минусы
+          if (rightChild.type === 'unary' && (rightChild as any).implicit) {
+            const innerText = nodeTextMap.get(rightChild.children[0].id) || '';
+            pairText = `${leftText} - ${innerText}`;
+          } else {
+            pairText = `${leftText} + ${rightText}`;
+          }
+        } else if (node.value === '*') {
+          pairText = `${leftText} * ${rightText}`;
+        }
+        
+        // Находим позицию пары
+        const pairIndex = fullExpressionString.indexOf(pairText, currentPos);
+        if (pairIndex !== -1) {
+          // Создаём виртуальный узел для пары
+          const pairNode: ASTNode = {
+            ...node,
+            id: `${node.id}_pair_${i}`,
+            children: [leftChild, rightChild]
+          };
+          
+          const pairRules = getApplicableRules(pairNode);
+          if (pairRules.length > 0) {
+            subexpressions.push({
+              text: pairText,
+              start: pairIndex,
+              end: pairIndex + pairText.length,
+              node: pairNode,
+              length: pairText.length,
+              rules: pairRules
+            });
+          }
+        }
+      }
     }
     
     // Рекурсивно обрабатываем дочерние узлы

@@ -25,13 +25,14 @@ export interface VariableNode extends BaseNode {
 export interface OperatorNode extends BaseNode {
   type: 'operator';
   value: OperatorValue;
-  children: [ASTNode, ASTNode];
+  children: ASTNode[]; // Массив произвольной длины (минимум 2)
 }
 
 export interface UnaryNode extends BaseNode {
   type: 'unary';
   value: '-';
   children: [ASTNode];
+  implicit?: boolean; // Скрытый унарный минус (создан из оператора вычитания)
 }
 
 export interface GroupNode extends BaseNode {
@@ -44,7 +45,7 @@ export interface GroupNode extends BaseNode {
 export interface ImplicitMulNode extends BaseNode {
   type: 'implicit_mul';
   value: '*';
-  children: [ASTNode, ASTNode];
+  children: ASTNode[]; // Массив произвольной длины (минимум 2)
 }
 
 export type ASTNode = ConstantNode | VariableNode | OperatorNode | UnaryNode | GroupNode | ImplicitMulNode;

@@ -14,20 +14,24 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
   
   // === ПРИОРИТЕТ 1: ВЫЧИСЛЕНИЯ ===
   
+  // Вычисления для n-арного умножения: проверяем все соседние пары
   if (node.type === 'operator' && node.value === '*') {
-    if (node.children[0].type === 'constant' && node.children[1].type === 'constant') {
-      const left = node.children[0] as ConstantNode;
-      const right = node.children[1] as ConstantNode;
-      rules.push({
-        id: 'eval_mul',
-        name: '→ Вычислить',
-        category: '1. Вычисления',
-        preview: `${left.value}*${right.value} → ${left.value * right.value}`,
-        apply: evaluateMultiplication
-      });
+    for (let i = 0; i < node.children.length - 1; i++) {
+      if (node.children[i].type === 'constant' && node.children[i + 1].type === 'constant') {
+        const left = node.children[i] as ConstantNode;
+        const right = node.children[i + 1] as ConstantNode;
+        rules.push({
+          id: `eval_mul_${i}`,
+          name: '→ Вычислить',
+          category: '1. Вычисления',
+          preview: `${left.value}*${right.value} → ${left.value * right.value}`,
+          apply: (n: ASTNode) => evaluatePairAt(n as OperatorNode, i, '*')
+        });
+      }
     }
   }
   
+  // Вычисления для деления (остаётся бинарным)
   if (node.type === 'operator' && node.value === '/') {
     if (node.children[0].type === 'constant' && node.children[1].type === 'constant') {
       const left = node.children[0] as ConstantNode;
@@ -42,49 +46,59 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
     }
   }
   
-  if (node.type === 'operator' && (node.value === '+' || node.value === '-')) {
-    if (node.children[0].type === 'constant' && node.children[1].type === 'constant') {
-      const left = node.children[0] as ConstantNode;
-      const right = node.children[1] as ConstantNode;
-      const result = node.value === '+' ? left.value + right.value : left.value - right.value;
-      rules.push({
-        id: 'eval_add_sub',
-        name: '→ Вычислить',
-        category: '1. Вычисления',
-        preview: `${left.value}${node.value}${right.value} → ${result}`,
-        apply: node.value === '+' ? evaluateAddition : evaluateSubtraction
-      });
+  // Вычисления для n-арного сложения: проверяем соседние пары констант
+  if (node.type === 'operator' && node.value === '+') {
+    for (let i = 0; i < node.children.length - 1; i++) {
+      const left = node.children[i];
+      const right = node.children[i + 1];
+      
+      // Проверяем, что оба операнда - константы (или унарный минус от константы)
+      const leftValue = getConstantValue(left);
+      const rightValue = getConstantValue(right);
+      
+      if (leftValue !== null && rightValue !== null) {
+        rules.push({
+          id: `eval_add_${i}`,
+          name: '→ Вычислить',
+          category: '1. Вычисления',
+          preview: `${leftValue}+${rightValue} → ${leftValue + rightValue}`,
+          apply: (n: ASTNode) => evaluatePairAt(n as OperatorNode, i, '+')
+        });
+      }
     }
   }
   
   // === ПРИОРИТЕТ 2: УПРОЩЕНИЯ ===
   
+  // Удаление 1 из n-арного умножения
   if (node.type === 'operator' && node.value === '*') {
-    if ((node.children[0].type === 'constant' && node.children[0].value === 1) ||
-        (node.children[1].type === 'constant' && node.children[1].value === 1)) {
+    const hasOne = node.children.some(child => child.type === 'constant' && child.value === 1);
+    if (hasOne) {
       rules.push({
         id: 'remove_mult_one',
         name: '→ Убрать *1',
         category: '2. Упрощения',
-        preview: 'a*1 → a или 1*a → a',
+        preview: 'a*1*b → a*b или 1*a → a',
         apply: removeMultiplicationByOne
       });
     }
   }
   
+  // Упрощение умножения на 0
   if (node.type === 'operator' && node.value === '*') {
-    if ((node.children[0].type === 'constant' && node.children[0].value === 0) ||
-        (node.children[1].type === 'constant' && node.children[1].value === 0)) {
+    const hasZero = node.children.some(child => child.type === 'constant' && child.value === 0);
+    if (hasZero) {
       rules.push({
         id: 'simplify_mult_zero',
         name: '→ Упростить до 0',
         category: '2. Упрощения',
-        preview: 'a*0 → 0',
+        preview: 'a*0*b → 0',
         apply: simplifyMultiplicationByZero
       });
     }
   }
   
+  // Деление на 1 (остаётся бинарным)
   if (node.type === 'operator' && node.value === '/') {
     if (node.children[1].type === 'constant' && node.children[1].value === 1) {
       rules.push({
@@ -97,27 +111,30 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
     }
   }
   
+  // Удаление 0 из n-арного сложения
   if (node.type === 'operator' && node.value === '+') {
-    if ((node.children[0].type === 'constant' && node.children[0].value === 0) ||
-        (node.children[1].type === 'constant' && node.children[1].value === 0)) {
+    const hasZero = node.children.some(child => {
+      // Обычный ноль
+      if (child.type === 'constant' && child.value === 0) {
+        return true;
+      }
+      // Унарный минус от нуля (-0)
+      if (child.type === 'unary' && child.value === '-') {
+        const innerChild = child.children[0];
+        if (innerChild.type === 'constant' && (innerChild as ConstantNode).value === 0) {
+          return true;
+        }
+      }
+      return false;
+    });
+    
+    if (hasZero) {
       rules.push({
         id: 'remove_add_zero',
         name: '→ Убрать +0',
         category: '2. Упрощения',
-        preview: 'a+0 → a или 0+a → a',
+        preview: 'a+0+b → a+b или 0+a → a',
         apply: removeAdditionOfZero
-      });
-    }
-  }
-  
-  if (node.type === 'operator' && node.value === '-') {
-    if (node.children[1].type === 'constant' && node.children[1].value === 0) {
-      rules.push({
-        id: 'remove_sub_zero',
-        name: '→ Убрать -0',
-        category: '2. Упрощения',
-        preview: 'a-0 → a',
-        apply: removeSubtractionOfZero
       });
     }
   }
@@ -170,7 +187,8 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
   
   // === ПРИОРИТЕТ 4: ПЕРЕСТАНОВКА ===
   
-  if (node.type === 'operator' && node.value === '*') {
+  // Коммутативность только для бинарных узлов (пар)
+  if (node.type === 'operator' && node.value === '*' && node.children.length === 2) {
     rules.push({
       id: 'commutative_mul',
       name: 'Поменять местами операнды',
@@ -180,7 +198,7 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
     });
   }
   
-  if (node.type === 'operator' && node.value === '+') {
+  if (node.type === 'operator' && node.value === '+' && node.children.length === 2) {
     rules.push({
       id: 'commutative_add',
       name: 'Поменять местами операнды',
@@ -206,22 +224,30 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
   // Сворачивание явного умножения (2*a → 2a)
   if (node.type === 'operator' && node.value === '*') {
     // Проверяем, можно ли свернуть в неявное умножение
-    const canCollapse = (
-      // Число * переменная
-      (node.children[0].type === 'constant' && node.children[1].type === 'variable') ||
-      // Переменная * переменная
-      (node.children[0].type === 'variable' && node.children[1].type === 'variable') ||
-      // Переменная * группа
-      (node.children[0].type === 'variable' && node.children[1].type === 'group') ||
-      // Число * группа
-      (node.children[0].type === 'constant' && node.children[1].type === 'group') ||
-      // Группа * переменная
-      (node.children[0].type === 'group' && node.children[1].type === 'variable') ||
-      // Группа * число
-      (node.children[0].type === 'group' && node.children[1].type === 'constant') ||
-      // Группа * группа
-      (node.children[0].type === 'group' && node.children[1].type === 'group')
-    );
+    // Для n-арного умножения проверяем все соседние пары
+    const canCollapse = node.children.length >= 2 && node.children.every((child, i) => {
+      if (i === node.children.length - 1) return true; // последний элемент не проверяем
+      const left = child;
+      const right = node.children[i + 1];
+      
+      // Проверяем возможные комбинации для неявного умножения
+      return (
+        // Число * переменная
+        (left.type === 'constant' && right.type === 'variable') ||
+        // Переменная * переменная
+        (left.type === 'variable' && right.type === 'variable') ||
+        // Переменная * группа
+        (left.type === 'variable' && right.type === 'group') ||
+        // Число * группа
+        (left.type === 'constant' && right.type === 'group') ||
+        // Группа * переменная
+        (left.type === 'group' && right.type === 'variable') ||
+        // Группа * число (только если число не первое)
+        (left.type === 'group' && right.type === 'constant') ||
+        // Группа * группа
+        (left.type === 'group' && right.type === 'group')
+      );
+    });
     
     if (canCollapse) {
       rules.push({
@@ -283,6 +309,60 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
 
 // === Функции преобразования ===
 
+/**
+ * Получить числовое значение узла (константа или унарный минус от константы)
+ */
+function getConstantValue(node: ASTNode): number | null {
+  if (node.type === 'constant') {
+    return node.value;
+  }
+  if (node.type === 'unary' && node.value === '-' && node.children[0].type === 'constant') {
+    return -(node.children[0] as ConstantNode).value;
+  }
+  return null;
+}
+
+/**
+ * Вычислить пару операндов в n-арном узле
+ */
+function evaluatePairAt(node: OperatorNode, index: number, operator: string): ASTNode {
+  const left = node.children[index];
+  const right = node.children[index + 1];
+  
+  let result: number;
+  
+  if (operator === '*') {
+    const leftVal = (left as ConstantNode).value;
+    const rightVal = (right as ConstantNode).value;
+    result = leftVal * rightVal;
+  } else if (operator === '+') {
+    const leftVal = getConstantValue(left)!;
+    const rightVal = getConstantValue(right)!;
+    result = leftVal + rightVal;
+  } else {
+    throw new Error(`Unsupported operator: ${operator}`);
+  }
+  
+  // Создаём новый массив детей с заменённой парой
+  const newChildren = [
+    ...node.children.slice(0, index),
+    { id: generateId(), type: 'constant' as const, value: result },
+    ...node.children.slice(index + 2)
+  ];
+  
+  // Если остался только один элемент, возвращаем его
+  if (newChildren.length === 1) {
+    return newChildren[0];
+  }
+  
+  // Иначе возвращаем n-арный узел
+  return {
+    ...node,
+    id: generateId(),
+    children: newChildren
+  };
+}
+
 function evaluateMultiplication(node: ASTNode): ConstantNode {
   const n = node as OperatorNode;
   const left = n.children[0] as ConstantNode;
@@ -329,10 +409,27 @@ function evaluateSubtraction(node: ASTNode): ConstantNode {
 
 function removeMultiplicationByOne(node: ASTNode): ASTNode {
   const n = node as OperatorNode;
-  if (n.children[0].type === 'constant' && (n.children[0] as ConstantNode).value === 1) {
-    return n.children[1];
+  // Удаляем все единицы из n-арного умножения
+  const newChildren = n.children.filter(
+    child => !(child.type === 'constant' && (child as ConstantNode).value === 1)
+  );
+  
+  // Если остался только один элемент, возвращаем его
+  if (newChildren.length === 1) {
+    return newChildren[0];
   }
-  return n.children[0];
+  
+  // Если остался пустой массив (все были единицы), возвращаем 1
+  if (newChildren.length === 0) {
+    return { id: generateId(), type: 'constant', value: 1 };
+  }
+  
+  // Иначе возвращаем n-арный узел без единиц
+  return {
+    ...n,
+    id: generateId(),
+    children: newChildren
+  };
 }
 
 function simplifyMultiplicationByZero(): ConstantNode {
@@ -350,10 +447,38 @@ function removeDivisionByOne(node: ASTNode): ASTNode {
 
 function removeAdditionOfZero(node: ASTNode): ASTNode {
   const n = node as OperatorNode;
-  if (n.children[0].type === 'constant' && (n.children[0] as ConstantNode).value === 0) {
-    return n.children[1];
+  // Удаляем все нули из n-арного сложения, включая унарные минусы от нуля
+  const newChildren = n.children.filter(child => {
+    // Обычные нули
+    if (child.type === 'constant' && (child as ConstantNode).value === 0) {
+      return false; // Удаляем
+    }
+    // Унарный минус от нуля (-0)
+    if (child.type === 'unary' && child.value === '-') {
+      const innerChild = child.children[0];
+      if (innerChild.type === 'constant' && (innerChild as ConstantNode).value === 0) {
+        return false; // Удаляем -0
+      }
+    }
+    return true; // Оставляем
+  });
+  
+  // Если остался только один элемент, возвращаем его
+  if (newChildren.length === 1) {
+    return newChildren[0];
   }
-  return n.children[0];
+  
+  // Если остался пустой массив (все были нули), возвращаем 0
+  if (newChildren.length === 0) {
+    return { id: generateId(), type: 'constant', value: 0 };
+  }
+  
+  // Иначе возвращаем n-арный узел без нулей
+  return {
+    ...n,
+    id: generateId(),
+    children: newChildren
+  };
 }
 
 function removeSubtractionOfZero(node: ASTNode): ASTNode {
@@ -487,7 +612,7 @@ function expandImplicitMultiplication(node: ASTNode): OperatorNode {
     id: generateId(),
     type: 'operator',
     value: '*',
-    children: [n.children[0], n.children[1]]
+    children: [...n.children] // Копируем весь массив детей
   };
 }
 
@@ -500,6 +625,6 @@ function collapseToImplicitMultiplication(node: ASTNode): ImplicitMulNode {
     id: generateId(),
     type: 'implicit_mul',
     value: '*',
-    children: [n.children[0], n.children[1]]
+    children: [...n.children] // Копируем весь массив детей
   };
 }

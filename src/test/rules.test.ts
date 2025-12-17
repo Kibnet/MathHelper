@@ -15,7 +15,8 @@ describe('Rules - Computation (Priority 1)', () => {
     const node = parser.parse();
     const rules = getApplicableRules(node);
     
-    const evalRule = rules.find(r => r.id === 'eval_mul');
+    // Для n-арного умножения правило имеет ID вида eval_mul_0 (для первой пары)
+    const evalRule = rules.find(r => r.id.startsWith('eval_mul_'));
     expect(evalRule).toBeTruthy();
     
     if (evalRule) {
@@ -44,7 +45,8 @@ describe('Rules - Computation (Priority 1)', () => {
     const node = parser.parse();
     const rules = getApplicableRules(node);
     
-    const evalRule = rules.find(r => r.id === 'eval_add_sub');
+    // Для n-арного сложения правило имеет ID вида eval_add_0 (для первой пары)
+    const evalRule = rules.find(r => r.id.startsWith('eval_add_'));
     expect(evalRule).toBeTruthy();
     
     if (evalRule) {
@@ -56,9 +58,11 @@ describe('Rules - Computation (Priority 1)', () => {
   it('should evaluate subtraction of constants', () => {
     const parser = new ExpressionParser('10 - 3');
     const node = parser.parse();
+    // Вычитание теперь преобразуется в сложение: 10 + (-3)
     const rules = getApplicableRules(node);
     
-    const evalRule = rules.find(r => r.id === 'eval_add_sub');
+    // Должно быть правило для вычисления суммы константы и унарного минуса
+    const evalRule = rules.find(r => r.id.startsWith('eval_add_'));
     expect(evalRule).toBeTruthy();
     
     if (evalRule) {
@@ -72,7 +76,8 @@ describe('Rules - Computation (Priority 1)', () => {
     const node = parser.parse();
     const rules = getApplicableRules(node);
     
-    const evalRule = rules.find(r => r.id === 'eval_mul');
+    // Не должно быть правил вычисления, когда один из операндов - переменная
+    const evalRule = rules.find(r => r.id.startsWith('eval_mul_'));
     expect(evalRule).toBeFalsy();
   });
 });
@@ -165,9 +170,11 @@ describe('Rules - Simplification (Priority 2)', () => {
   it('should remove subtraction of 0', () => {
     const parser = new ExpressionParser('x - 0');
     const node = parser.parse();
+    // x - 0 теперь преобразуется в x + (-0)
+    // Правило remove_add_zero должно удалить (-0)
     const rules = getApplicableRules(node);
     
-    const simplifyRule = rules.find(r => r.id === 'remove_sub_zero');
+    const simplifyRule = rules.find(r => r.id === 'remove_add_zero');
     expect(simplifyRule).toBeTruthy();
     
     if (simplifyRule) {
@@ -528,6 +535,59 @@ describe('Rules - Implicit Multiplication (Notation)', () => {
   });
 });
 
+describe('Rules - Bug Fixes', () => {
+  it('БАГ 1: коммутативность для парного подвыражения в n-арном узле должна работать', () => {
+    // Воспроизведение: выражение 1+2+3, выбираем подвыражение 1+2, применяем коммутативность
+    // Ожидаем: 2+1+3
+    const parser = new ExpressionParser('1 + 2 + 3');
+    const ast = parser.parse() as any;
+    
+    // Проверяем что создан n-арный узел
+    expect(ast.type).toBe('operator');
+    expect(ast.value).toBe('+');
+    expect(ast.children.length).toBe(3);
+    
+    // Создаём виртуальный парный узел для подвыражения 1+2 (первые два элемента)
+    const pairNode: any = {
+      id: 'test_pair',
+      type: 'operator',
+      value: '+',
+      children: [ast.children[0], ast.children[1]]
+    };
+    
+    // Получаем правила для парного подвыражения
+    const rules = getApplicableRules(pairNode);
+    const commRule = rules.find(r => r.id === 'commutative_add');
+    
+    expect(commRule).toBeDefined();
+    
+    if (commRule) {
+      // Применяем правило к паре
+      const swappedPair = commRule.apply(pairNode) as any;
+      
+      // Проверяем что в паре элементы поменялись местами
+      expect((swappedPair.children[0] as ConstantNode).value).toBe(2);
+      expect((swappedPair.children[1] as ConstantNode).value).toBe(1);
+      
+      // Теперь нужно заменить первые два элемента в исходном n-арном узле
+      // на элементы из swappedPair
+      const newChildren = [
+        swappedPair.children[0],
+        swappedPair.children[1],
+        ast.children[2]
+      ];
+      
+      const newAst = {
+        ...ast,
+        children: newChildren
+      };
+      
+      // Проверяем результат: должно быть 2+1+3
+      expect(expressionToString(newAst)).toBe('2 + 1 + 3');
+    }
+  });
+});
+
 describe('Rules - Edge Cases', () => {
   it('should handle complex nested expressions', () => {
     const parser = new ExpressionParser('(a + b) * (c - d)');
@@ -551,7 +611,8 @@ describe('Rules - Edge Cases', () => {
     const node = parser.parse();
     const rules = getApplicableRules(node);
     
-    const evalRule = rules.find(r => r.id === 'eval_mul');
+    // Для n-арного умножения правило имеет ID вида eval_mul_0
+    const evalRule = rules.find(r => r.id.startsWith('eval_mul_'));
     expect(evalRule).toBeTruthy();
   });
 

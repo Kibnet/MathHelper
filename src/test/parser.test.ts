@@ -83,10 +83,17 @@ describe('Parser - Binary Operations', () => {
   it('should parse subtraction', () => {
     const parser = new ExpressionParser('5 - 2');
     const result = parser.parse() as OperatorNode;
+    // Вычитание теперь преобразуется в сложение: 5 + (-2)
     expect(result.type).toBe('operator');
-    expect(result.value).toBe('-');
+    expect(result.value).toBe('+');
     expect((result.children[0] as ConstantNode).value).toBe(5);
-    expect((result.children[1] as ConstantNode).value).toBe(2);
+    
+    // Второй операнд - унарный минус с флагом implicit
+    const secondOperand = result.children[1] as UnaryNode;
+    expect(secondOperand.type).toBe('unary');
+    expect(secondOperand.value).toBe('-');
+    expect(secondOperand.implicit).toBe(true);
+    expect((secondOperand.children[0] as ConstantNode).value).toBe(2);
   });
 
   it('should parse multiplication', () => {
@@ -142,30 +149,62 @@ describe('Parser - Operator Precedence', () => {
     const parser = new ExpressionParser('10 - 8 / 2');
     const result = parser.parse() as OperatorNode;
     
-    expect(result.value).toBe('-');
-    const right = result.children[1] as OperatorNode;
-    expect(right.value).toBe('/');
+    // Теперь это сложение: 10 + (-(8/2))
+    expect(result.value).toBe('+');
+    
+    // Второй операнд - унарный минус от деления
+    const secondOperand = result.children[1] as UnaryNode;
+    expect(secondOperand.type).toBe('unary');
+    expect(secondOperand.implicit).toBe(true);
+    
+    const division = secondOperand.children[0] as OperatorNode;
+    expect(division.value).toBe('/');
   });
 
   it('should handle left-to-right for same precedence (10 - 5 - 2)', () => {
     const parser = new ExpressionParser('10 - 5 - 2');
     const result = parser.parse() as OperatorNode;
     
-    expect(result.value).toBe('-');
-    expect((result.children[1] as ConstantNode).value).toBe(2);
+    // Теперь это n-арное сложение: +(10, (-5), (-2))
+    expect(result.value).toBe('+');
+    expect(result.children.length).toBe(3);
     
-    const left = result.children[0] as OperatorNode;
-    expect(left.value).toBe('-');
-    expect((left.children[0] as ConstantNode).value).toBe(10);
-    expect((left.children[1] as ConstantNode).value).toBe(5);
+    expect((result.children[0] as ConstantNode).value).toBe(10);
+    
+    // Второй операнд: (-5)
+    const second = result.children[1] as UnaryNode;
+    expect(second.type).toBe('unary');
+    expect(second.implicit).toBe(true);
+    expect((second.children[0] as ConstantNode).value).toBe(5);
+    
+    // Третий операнд: (-2)
+    const third = result.children[2] as UnaryNode;
+    expect(third.type).toBe('unary');
+    expect(third.implicit).toBe(true);
+    expect((third.children[0] as ConstantNode).value).toBe(2);
   });
 
   it('should handle complex precedence (2 + 3 * 4 - 5 / 5)', () => {
     const parser = new ExpressionParser('2 + 3 * 4 - 5 / 5');
     const result = parser.parse() as OperatorNode;
     
+    // Теперь это n-арное сложение: +(2, *(3,4), (-(5/5)))
     expect(result.type).toBe('operator');
-    expect(result.value).toBe('-');
+    expect(result.value).toBe('+');
+    expect(result.children.length).toBe(3);
+    
+    // Первый операнд: 2
+    expect((result.children[0] as ConstantNode).value).toBe(2);
+    
+    // Второй операнд: 3*4
+    const multiplication = result.children[1] as OperatorNode;
+    expect(multiplication.type).toBe('operator');
+    expect(multiplication.value).toBe('*');
+    
+    // Третий операнд: -(5/5)
+    const unaryMinus = result.children[2] as UnaryNode;
+    expect(unaryMinus.type).toBe('unary');
+    expect(unaryMinus.implicit).toBe(true);
   });
 });
 
@@ -317,6 +356,34 @@ describe('Parser - Error Handling', () => {
       const parser = new ExpressionParser('()');
       parser.parse();
     }).toThrow();
+  });
+});
+
+describe('Parser - Bug Fixes', () => {
+  it('БАГ 2: выражение 1*2/3 должно парситься без ошибки Maximum call stack size exceeded', () => {
+    // Воспроизведение: пытаемся распарсить 1*2/3
+    // Ожидаем: должно парситься как (1*2)/3
+    const parser = new ExpressionParser('1 * 2 / 3');
+    
+    // Не должно выбрасывать ошибку и должно вернуть результат
+    const result = parser.parse() as OperatorNode;
+    
+    // Проверяем структуру: (1*2)/3
+    expect(result.type).toBe('operator');
+    expect(result.value).toBe('/');
+    expect(result.children.length).toBe(2);
+    
+    // Левый операнд: 1*2
+    const left = result.children[0] as OperatorNode;
+    expect(left.type).toBe('operator');
+    expect(left.value).toBe('*');
+    expect((left.children[0] as ConstantNode).value).toBe(1);
+    expect((left.children[1] as ConstantNode).value).toBe(2);
+    
+    // Правый операнд: 3
+    const right = result.children[1] as ConstantNode;
+    expect(right.type).toBe('constant');
+    expect(right.value).toBe(3);
   });
 });
 
