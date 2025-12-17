@@ -385,6 +385,30 @@ describe('Parser - Bug Fixes', () => {
     expect(right.type).toBe('constant');
     expect(right.value).toBe(3);
   });
+
+  it('БАГ 4: выражение a*bc должно парситься как a*(bc), а не a*b*c', () => {
+    // Воспроизведение бага: a*bc должно парситься как a * (bc),
+    // где bc - неявное умножение, а не как a*b*c (три отдельных множителя)
+    const parser = new ExpressionParser('a*bc');
+    const result = parser.parse() as OperatorNode;
+    
+    // Корневой узел должен быть явным умножением
+    expect(result.type).toBe('operator');
+    expect(result.value).toBe('*');
+    expect(result.children.length).toBe(2);
+    
+    // Первый операнд: переменная a
+    const firstOperand = result.children[0] as VariableNode;
+    expect(firstOperand.type).toBe('variable');
+    expect(firstOperand.value).toBe('a');
+    
+    // Второй операнд: неявное умножение bc
+    const secondOperand = result.children[1] as OperatorNode;
+    expect(secondOperand.type).toBe('implicit_mul');
+    expect(secondOperand.children.length).toBe(2);
+    expect((secondOperand.children[0] as VariableNode).value).toBe('b');
+    expect((secondOperand.children[1] as VariableNode).value).toBe('c');
+  });
 });
 
 describe('Parser - Edge Cases', () => {

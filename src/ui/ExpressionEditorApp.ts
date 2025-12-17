@@ -151,8 +151,74 @@ export class ExpressionEditorApp {
       // Применяем преобразование к выбранному узлу
       const transformedNode = rule.apply(node);
       
-      // Заменяем узел в основном дереве
-      const newRootNode = replaceNode(this.currentNode, node.id, transformedNode);
+      let newRootNode: ASTNode;
+      
+      // Проверяем, является ли узел виртуальным парным узлом из n-арной операции
+      const pairMatch = node.id.match(/^(.+)_pair_(\d+)$/);
+      if (pairMatch) {
+        // Это виртуальный парный узел
+        const parentId = pairMatch[1];
+        const pairIndex = parseInt(pairMatch[2]);
+        
+        console.log('Detected pair node:', { parentId, pairIndex });
+        
+        // Находим родительский n-арный узел в дереве
+        const parentNode = this.findNodeById(this.currentNode, parentId);
+        if (!parentNode) {
+          throw new Error('Родительский узел не найден');
+        }
+        
+        if (parentNode.type !== 'operator' && parentNode.type !== 'implicit_mul') {
+          throw new Error('Родительский узел не является оператором');
+        }
+        
+        console.log('Parent node found:', parentNode);
+        console.log('Transformed pair:', transformedNode);
+        
+        // Проверяем, можно ли раскрыть трансформированный узел обратно в пару детей
+        // Это возможно если:
+        // 1. Трансформация сохранила тип узла (например, коммутативность)
+        // 2. Трансформация изменила только порядок детей
+        const canUnpackChildren = 
+          transformedNode.type === node.type && 
+          transformedNode.children.length === 2;
+        
+        let newChildren: ASTNode[];
+        
+        if (canUnpackChildren) {
+          // Раскладываем трансформированный узел на двух детей
+          // (например, для коммутативности: a+b → b+a)
+          newChildren = [...parentNode.children];
+          newChildren[pairIndex] = transformedNode.children[0]; // Левый элемент пары
+          newChildren[pairIndex + 1] = transformedNode.children[1]; // Правый элемент пары
+          
+          console.log('Unpacking transformed children back into parent');
+        } else {
+          // Заменяем пару одним трансформированным узлом
+          // (например, для раскрытия неявного умножения: ab → a*b)
+          newChildren = [
+            ...parentNode.children.slice(0, pairIndex),
+            transformedNode,
+            ...parentNode.children.slice(pairIndex + 2)
+          ];
+          
+          console.log('Replacing pair with single transformed node');
+        }
+        
+        const modifiedParent = {
+          ...parentNode,
+          children: newChildren
+        };
+        
+        console.log('Modified parent:', modifiedParent);
+        
+        // Заменяем родительский узел в основном дереве
+        newRootNode = replaceNode(this.currentNode, parentId, modifiedParent);
+      } else {
+        // Обычный узел - заменяем напрямую
+        newRootNode = replaceNode(this.currentNode, node.id, transformedNode);
+      }
+      
       const newExpr = expressionToString(newRootNode);
       
       // Обновляем состояние
@@ -174,6 +240,24 @@ export class ExpressionEditorApp {
     } catch (error) {
       this.showError('Ошибка преобразования: ' + (error as Error).message);
     }
+  }
+
+  /**
+   * Поиск узла по ID в дереве (вспомогательный метод)
+   */
+  private findNodeById(root: ASTNode, id: string): ASTNode | null {
+    if (root.id === id) {
+      return root;
+    }
+    
+    if ('children' in root && root.children) {
+      for (const child of root.children) {
+        const found = this.findNodeById(child, id);
+        if (found) return found;
+      }
+    }
+    
+    return null;
   }
 
   /**

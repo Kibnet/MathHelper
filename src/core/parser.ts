@@ -127,7 +127,6 @@ export class ExpressionParser {
     }
     
     const firstOp = token.value;
-    const firstIsImplicit = token.implicit || false;
     
     // Если первый оператор - деление, сразу создаём бинарный узел
     if (firstOp === '/') {
@@ -209,6 +208,7 @@ export class ExpressionParser {
   
   /**
    * Создаёт n-арный узел умножения (явного или неявного)
+   * БАГ 4: Правильно группирует смешанные явные и неявные операции
    */
   private createMultiplicationNode(
     operands: ASTNode[],
@@ -217,6 +217,53 @@ export class ExpressionParser {
   ): ASTNode {
     // Проверяем, все ли операции неявные
     const allImplicit = implicitFlags.length > 0 && implicitFlags.every(f => f);
+    const allExplicit = implicitFlags.length > 0 && implicitFlags.every(f => !f);
+    
+    // Если есть смешанные флаги, группируем последовательности неявных операций
+    if (!allImplicit && !allExplicit) {
+      // Ищем первую последовательность неявных операций
+      for (let i = 0; i < implicitFlags.length; i++) {
+        if (implicitFlags[i]) {
+          // Нашли начало неявной последовательности
+          // i - индекс первого неявного оператора (между operands[i] и operands[i+1])
+          // Находим конец последовательности
+          let j = i;
+          while (j < implicitFlags.length && implicitFlags[j]) {
+            j++;
+          }
+          // j - индекс после последнего неявного оператора
+          
+          // Создаём узел неявного умножения для операндов
+          // implicitFlags[i] - оператор между operands[i] и operands[i+1]
+          // Например: a*bc где i=1, j=2 → операнды [b, c] = operands.slice(1, 3)
+          const implicitOperands = operands.slice(i, j + 1);
+          const implicitOpIndices = operatorIndices.slice(i, j);
+          
+          const implicitNode = this.createImplicitMultNode(implicitOperands, implicitOpIndices);
+          
+          // Заменяем операнды на один узел
+          // operands = [a, b, c] → [a, implicit_mul(b,c)]
+          const newOperands = [
+            ...operands.slice(0, i),
+            implicitNode,
+            ...operands.slice(j + 1)
+          ];
+          // operatorIndices = [idx0, idx1] → [idx0]
+          const newOperatorIndices = [
+            ...operatorIndices.slice(0, i),
+            ...operatorIndices.slice(j)
+          ];
+          // implicitFlags = [false, true] → [false]
+          const newImplicitFlags = [
+            ...implicitFlags.slice(0, i),
+            ...implicitFlags.slice(j)
+          ];
+          
+          // Рекурсивно обрабатываем оставшиеся операнды
+          return this.createMultiplicationNode(newOperands, newOperatorIndices, newImplicitFlags);
+        }
+      }
+    }
     
     // Собираем tokenIds
     const allTokenIds: number[] = [];
@@ -228,15 +275,7 @@ export class ExpressionParser {
     });
     
     if (allImplicit) {
-      // Создаём n-арный узел неявного умножения
-      const node: ImplicitMulNode = {
-        id: generateId(),
-        type: 'implicit_mul',
-        value: '*',
-        children: operands,
-        tokenIds: allTokenIds
-      };
-      return node;
+      return this.createImplicitMultNode(operands, operatorIndices);
     } else {
       // Создаём n-арный узел явного умножения
       const node: OperatorNode = {
@@ -248,6 +287,24 @@ export class ExpressionParser {
       };
       return node;
     }
+  }
+  
+  /**
+   * Создаёт узел неявного умножения
+   */
+  private createImplicitMultNode(operands: ASTNode[], operatorIndices: number[]): ImplicitMulNode {
+    const allTokenIds: number[] = [];
+    operands.forEach((operand) => {
+      allTokenIds.push(...(operand.tokenIds || []));
+    });
+    
+    return {
+      id: generateId(),
+      type: 'implicit_mul',
+      value: '*',
+      children: operands,
+      tokenIds: allTokenIds
+    };
   }
 
   private parseUnary(): ASTNode {
