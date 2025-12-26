@@ -68,7 +68,7 @@ describe('ExpressionDisplay', () => {
       { expr: '2 + 3', expectedLabels: ['+', '2', '3'] },
       { expr: '2 * 3', expectedLabels: ['*', '2', '3'] },
       { expr: '2x', expectedLabels: ['×', '2', 'x'] },
-      { expr: '(2)', expectedLabels: ['( )', '2'] }
+      { expr: '(2)', expectedLabels: ['(', ')', '2'] }
     ];
     
     for (const testCase of testCases) {
@@ -80,9 +80,11 @@ describe('ExpressionDisplay', () => {
       
       // Проверяем, что созданы фреймы с ожидаемыми метками
       const frames = document.querySelectorAll('.expression-range');
-      const labels = Array.from(frames).map((frame: Element) => 
-        (frame.querySelector('.frame-label') as HTMLElement)?.textContent
-      ).filter(Boolean);
+      const labels = Array.from(frames).flatMap((frame: Element) =>
+        Array.from(frame.querySelectorAll('.frame-label'))
+          .map(label => label.textContent)
+          .filter(Boolean)
+      );
       
       // Проверяем, что все ожидаемые метки присутствуют
       for (const expectedLabel of testCase.expectedLabels) {

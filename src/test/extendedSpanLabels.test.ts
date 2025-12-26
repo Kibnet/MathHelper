@@ -83,14 +83,10 @@ describe('Extended Span Labels', () => {
     const labelContainer = frame.querySelector('.frame-label-container');
     expect(labelContainer).toBeTruthy();
     
-    // Для бинарного неявного умножения используется обычная метка, а не отдельные span
-    const regularLabel = labelContainer!.querySelector('.frame-label');
-    expect(regularLabel).toBeTruthy();
-    expect(regularLabel!.textContent).toBe('×');
-    
-    // Не должно быть отдельных символов
-    const charSpans = labelContainer!.querySelectorAll('.frame-label');
-    expect(charSpans.length).toBe(0);
+    // Для бинарного неявного умножения должна быть одна обычная метка
+    const labelSpans = labelContainer!.querySelectorAll('.frame-label');
+    expect(labelSpans.length).toBe(1);
+    expect(labelSpans[0].textContent).toBe('×');
   });
 
   it('should create separate spans for n-ary implicit multiplication', () => {
@@ -187,13 +183,9 @@ describe('Extended Span Labels', () => {
     const labelContainer = frame.querySelector('.frame-label-container');
     expect(labelContainer).toBeTruthy();
     
-    // Для бинарных операций должна использоваться обычная метка
-    const regularLabel = labelContainer!.querySelector('.frame-label');
-    expect(regularLabel).toBeTruthy();
-    expect(regularLabel!.textContent).toBe('+');
-    
-    // Не должно быть отдельных символов
-    const charSpans = labelContainer!.querySelectorAll('.frame-label');
-    expect(charSpans.length).toBe(0);
+    // Для бинарных операций должна быть одна обычная метка
+    const labelSpans = labelContainer!.querySelectorAll('.frame-label');
+    expect(labelSpans.length).toBe(1);
+    expect(labelSpans[0].textContent).toBe('+');
   });
 });
