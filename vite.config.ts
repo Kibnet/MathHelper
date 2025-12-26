@@ -5,7 +5,10 @@ export default defineConfig({
   base: '/MathHelper/',
   build: {
     outDir: 'dist',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      input: 'expression-editor-modular.html'
+    }
   },
   server: {
     host: '0.0.0.0',
