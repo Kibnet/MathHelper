@@ -28,6 +28,14 @@ body {
   flex-direction: column;
 }
 
+@media (max-width: 1024px) {
+  body {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+}
+
 /* Общие элементы интерфейса */
 input[type="text"] {
   flex: 1;

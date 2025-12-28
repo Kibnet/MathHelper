@@ -78,6 +78,42 @@ export class ExpressionEditorApp {
         this.buildExpression();
       }
     });
+
+    this.setupPanelToggles();
+  }
+
+  /**
+   * Настройка обработчиков для мобильных сворачиваемых панелей
+   */
+  private setupPanelToggles(): void {
+    const toggleButtons = document.querySelectorAll<HTMLButtonElement>('.panel-toggle[data-panel-toggle]');
+    toggleButtons.forEach((button) => {
+      button.addEventListener('click', () => this.togglePanel(button));
+    });
+  }
+
+  /**
+   * Переключает видимость панели и обновляет доступность
+   */
+  private togglePanel(button: HTMLButtonElement): void {
+    const targetId = button.dataset.panelToggle;
+    if (!targetId) {
+      return;
+    }
+
+    const target = document.getElementById(targetId);
+    if (!target) {
+      return;
+    }
+
+    const panel = target.closest('.collapsible-panel');
+    if (!panel) {
+      return;
+    }
+
+    const isCollapsed = panel.classList.toggle('collapsed');
+    button.setAttribute('aria-expanded', (!isCollapsed).toString());
+    button.textContent = isCollapsed ? 'Показать' : 'Скрыть';
   }
 
   /**

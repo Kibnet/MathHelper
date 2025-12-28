@@ -59,6 +59,29 @@
   font-size: 1rem;
 }
 
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.panel-header h3 {
+  margin: 0;
+}
+
+.panel-toggle {
+  display: none;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  border-radius: 999px;
+}
+
+.collapsible-panel.collapsed .panel-content {
+  display: none;
+}
+
 .commands-list {
   flex: 1;
   overflow-y: auto;
@@ -127,6 +150,73 @@
 
 .description-section h3 {
   color: #f59e0b;
+}
+
+@media (max-width: 1024px) {
+  .app-layout {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+
+  .left-panel,
+  .right-panel {
+    border: none;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .left-panel {
+    padding: 15px 20px;
+  }
+
+  .right-panel {
+    gap: 0;
+  }
+
+  .history-section,
+  .description-section {
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .panel-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    padding: 12px 16px;
+  }
+
+  .app-header h1 {
+    font-size: 1.4rem;
+  }
+
+  .input-section {
+    padding: 12px 16px;
+  }
+
+  .input-group {
+    flex-direction: column;
+  }
+
+  .input-group button,
+  .input-group input[type="text"] {
+    width: 100%;
+  }
+
+  .expression-section {
+    padding: 16px;
+  }
+
+  .expression-text {
+    font-size: 1.05rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
 }
 
 /* Компонент отображения выражения */

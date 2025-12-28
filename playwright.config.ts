@@ -25,7 +25,7 @@ export default defineConfig({
   
   use: {
     // Базовый URL для тестов (сервер должен быть запущен)
-    baseURL: 'http://localhost:8000',
+    baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:8000/MathHelper/',
     
     // Скриншот только при падении теста
     screenshot: 'only-on-failure',
