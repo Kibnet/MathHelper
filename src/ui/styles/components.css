@@ -38,6 +38,7 @@
 .app-layout {
   display: grid;
   grid-template-columns: 300px 1fr 350px;
+  grid-template-areas: "commands expression history";
   gap: 0;
   height: calc(100vh - 80px);
   overflow: hidden;
@@ -45,6 +46,7 @@
 
 /* Левая панель - Команды */
 .left-panel {
+  grid-area: commands;
   background: var(--bg-card);
   border-right: 1px solid var(--border-subtle);
   padding: 20px;
@@ -89,6 +91,7 @@
 
 /* Центральная панель */
 .center-panel {
+  grid-area: expression;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -118,6 +121,7 @@
 
 /* Правая панель - История и Описание */
 .right-panel {
+  grid-area: history;
   background: var(--bg-card);
   border-left: 1px solid var(--border-subtle);
   display: flex;
@@ -154,8 +158,11 @@
 
 @media (max-width: 1024px) {
   .app-layout {
-    display: flex;
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "history"
+      "expression"
+      "commands";
     height: auto;
     overflow: visible;
   }
