@@ -55,7 +55,7 @@ test.describe('Консоль браузера и отладка', () => {
       failedRequests.push(`${request.method()} ${request.url()} - ${request.failure()?.errorText}`);
     });
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('networkidle');
     
     // Взаимодействие с приложением
@@ -114,7 +114,7 @@ test.describe('Консоль браузера и отладка', () => {
   });
 
   test('инъекция скриптов и выполнение JavaScript в браузере', async ({ page }) => {
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     
     // Инъекция console.log для отладки
@@ -151,7 +151,7 @@ test.describe('Консоль браузера и отладка', () => {
     page.on('console', msg => logs.push(msg.text()));
     
     console.log('Шаг 1: Загрузка страницы');
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     
     console.log('Шаг 2: Ожидание загрузки DOM');
     await page.waitForLoadState('domcontentloaded');
@@ -181,7 +181,7 @@ test.describe('Консоль браузера и отладка', () => {
   });
 
   test('скриншоты для визуальной отладки', async ({ page }) => {
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('networkidle');
     
     // Скриншот всей страницы

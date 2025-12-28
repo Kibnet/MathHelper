@@ -14,9 +14,20 @@
 
   <div class="app-layout">
     <!-- Левая панель: Команды -->
-    <div class="left-panel">
-      <h3>⚡ Доступные команды</h3>
-      <div id="commandsPanel" class="commands-list">
+    <div class="left-panel collapsible-panel">
+      <div class="panel-header">
+        <h3>⚡ Доступные команды</h3>
+        <button
+          type="button"
+          class="panel-toggle"
+          data-panel-toggle="commandsPanel"
+          aria-expanded="true"
+          aria-controls="commandsPanel"
+        >
+          Скрыть
+        </button>
+      </div>
+      <div id="commandsPanel" class="commands-list panel-content">
         <p class="placeholder">Выберите фрейм для просмотра преобразований</p>
       </div>
     </div>
@@ -53,16 +64,38 @@
 
     <!-- Правая панель: История + Описание -->
     <div class="right-panel">
-      <div class="history-section">
-        <h3>📜 История</h3>
-        <div id="historyPanel">
+      <div class="history-section collapsible-panel">
+        <div class="panel-header">
+          <h3>📜 История</h3>
+          <button
+            type="button"
+            class="panel-toggle"
+            data-panel-toggle="historyPanel"
+            aria-expanded="true"
+            aria-controls="historyPanel"
+          >
+            Скрыть
+          </button>
+        </div>
+        <div id="historyPanel" class="panel-content">
           <p class="placeholder">История преобразований появится здесь</p>
         </div>
       </div>
 
-      <div class="description-section">
-        <h3>📖 Описание правила</h3>
-        <div id="descriptionPanel" class="description-content">
+      <div class="description-section collapsible-panel">
+        <div class="panel-header">
+          <h3>📖 Описание правила</h3>
+          <button
+            type="button"
+            class="panel-toggle"
+            data-panel-toggle="descriptionPanel"
+            aria-expanded="true"
+            aria-controls="descriptionPanel"
+          >
+            Скрыть
+          </button>
+        </div>
+        <div id="descriptionPanel" class="description-content panel-content">
           <p class="placeholder">Выберите преобразование для просмотра описания</p>
         </div>
       </div>

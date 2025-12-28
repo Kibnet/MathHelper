@@ -31,7 +31,7 @@ test.describe('MathHelper Application', () => {
     });
     
     // Переходим на страницу приложения
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     
     // Ожидаем загрузку страницы
     await page.waitForLoadState('domcontentloaded');
@@ -74,7 +74,7 @@ test.describe('MathHelper Application', () => {
       consoleMessages.push(`[${msg.type()}] ${msg.text()}`);
     });
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     
     // Находим поле ввода выражения
@@ -103,7 +103,7 @@ test.describe('MathHelper Application', () => {
   });
 
   test('должен показывать токены выражения при наведении', async ({ page }) => {
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     
     const expressionInput = page.locator('#expressionInput');
@@ -127,6 +127,30 @@ test.describe('MathHelper Application', () => {
     }
   });
 
+  test('должен сворачивать панели на мобильном экране', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('expression-editor-modular.html');
+    await page.waitForLoadState('domcontentloaded');
+
+    const commandsToggle = page.locator('[data-panel-toggle="commandsPanel"]');
+    const commandsPanel = page.locator('#commandsPanel');
+    await expect(commandsToggle).toBeVisible();
+    await expect(commandsPanel).toBeVisible();
+
+    await commandsToggle.click();
+    await expect(commandsPanel).toBeHidden();
+
+    await commandsToggle.click();
+    await expect(commandsPanel).toBeVisible();
+
+    const historyToggle = page.locator('[data-panel-toggle="historyPanel"]');
+    const historyPanel = page.locator('#historyPanel');
+    await expect(historyToggle).toBeVisible();
+
+    await historyToggle.click();
+    await expect(historyPanel).toBeHidden();
+  });
+
   test('БАГ 1: коммутативность для парного подвыражения 1+2 в 1+2+3 должна давать 2+1+3', async ({ page }) => {
     const consoleMessages: string[] = [];
     const consoleErrors: string[] = [];
@@ -145,7 +169,7 @@ test.describe('MathHelper Application', () => {
       consoleErrors.push(`[PAGE ERROR] ${error.message}`);
     });
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     
     // Ждём завершения автоматической загрузки примера (500ms + запас)
@@ -290,7 +314,7 @@ test.describe('MathHelper Application', () => {
       }
     });
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     
     // Ждём завершения автоматической загрузки примера (500ms + запас)
@@ -414,7 +438,7 @@ test.describe('MathHelper Application', () => {
       const logs: string[] = [];
       page.on('console', msg => logs.push(msg.text()));
       
-      await page.goto('/expression-editor-modular.html');
+      await page.goto('expression-editor-modular.html');
       await page.waitForLoadState('networkidle');
       
       console.log('=== ПРИЛОЖЕНИЕ ЗАГРУЖЕНО ===');
@@ -460,7 +484,7 @@ test.describe('Тестирование трансформаций на вирт
       }
     });
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
     
@@ -539,7 +563,7 @@ test.describe('Тестирование трансформаций на вирт
       }
     });
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
     
@@ -615,7 +639,7 @@ test.describe('Тестирование трансформаций на вирт
       }
     });
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
     
@@ -691,7 +715,7 @@ test.describe('Тестирование трансформаций на вирт
       }
     });
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
     
@@ -767,7 +791,7 @@ test.describe('Тестирование трансформаций на вирт
       }
     });
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
     
@@ -889,7 +913,7 @@ test.describe('Тестирование трансформаций на вирт
       }
     });
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
     
@@ -982,7 +1006,7 @@ test.describe('Тестирование трансформаций на вирт
       }
     });
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
     
@@ -1056,7 +1080,7 @@ test.describe('Тестирование трансформаций на вирт
       }
     });
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
     
@@ -1137,7 +1161,7 @@ test.describe('Тестирование трансформаций на вирт
       }
     });
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
     
@@ -1204,7 +1228,7 @@ test.describe('Тестирование трансформаций на вирт
   test('БАГ 5: фреймы после трансформации должны совпадать с фреймами после пересборки', async ({ page }) => {
     console.log('\n=== ТЕСТ: БАГ несоответствия фреймов после трансформации ===');
     
-    await page.goto('/expression-editor-modular.html');
+    await page.goto('expression-editor-modular.html');
     await expect(page).toHaveTitle('Преобразователь выражений');
     
     const expressionInput = page.locator('#expressionInput');
