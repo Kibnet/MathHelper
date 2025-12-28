@@ -24,6 +24,20 @@
    - Названия переменных и функций могут оставаться на английском
    - Документация к функциям и классам должна быть на русском
 
+## Development process
+
+All tasks MUST follow Quest Mode:
+
+1. Clarification
+2. Specification
+3. Explicit approval
+4. Implementation
+5. Tests and report
+
+No code before specification approval.
+
+Violation of this process is considered an error.
+
 ## Стиль общения
 
 1. Отвечать четко и по делу
