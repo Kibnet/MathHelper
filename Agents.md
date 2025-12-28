@@ -164,7 +164,7 @@ npm run coverage      # С отчетом покрытия
 **Команды:**
 ```bash
 # Шаг 1: Запустить dev сервер (в первом терминале)
-npm run dev
+npm run dev -- --host 0.0.0.0 --port 8000
 # Дождаться: ✓ VITE ready... ➜ Local: http://localhost:8000/
 
 # Шаг 2: Запустить тесты (во втором терминале)
@@ -172,6 +172,13 @@ npm run test:e2e         # Headless режим
 npm run test:e2e:headed  # С видимым браузером
 npm run test:e2e:ui      # Интерактивный режим
 npm run test:e2e:debug   # Режим отладки
+```
+
+**Переменная окружения для baseURL (рекомендуется при нестандартном base path):**
+```bash
+# По умолчанию baseURL = http://localhost:8000/MathHelper/
+# Можно переопределить для другой базы:
+E2E_BASE_URL="http://localhost:8000/MathHelper/" npm run test:e2e
 ```
 
 **PowerShell:** Для корректного вывода используйте:
