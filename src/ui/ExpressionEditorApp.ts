@@ -22,7 +22,6 @@ export class ExpressionEditorApp {
   private errorMessage: HTMLElement;
   
   // Состояние приложения
-  private currentExpression: string | null = null;
   private currentNode: ASTNode | null = null;
 
   constructor() {
@@ -134,7 +133,6 @@ export class ExpressionEditorApp {
       this.currentNode = ast;
       
       const exprString = expressionToString(ast);
-      this.currentExpression = exprString;
       
       // Добавляем в историю
       this.historyPanel.addState(exprString, 'Исходное выражение', ast);
@@ -162,7 +160,6 @@ export class ExpressionEditorApp {
     this.historyPanel.clear();
     this.descriptionPanel.clear();
     this.hideError();
-    this.currentExpression = null;
     this.currentNode = null;
   }
 
@@ -303,7 +300,6 @@ export class ExpressionEditorApp {
     this.historyPanel.setCurrentIndex(index);
     this.expressionInput.value = state.expression;
     this.currentNode = state.node;
-    this.currentExpression = state.expression;
     
     this.expressionDisplay.render(state.expression, state.node);
   }

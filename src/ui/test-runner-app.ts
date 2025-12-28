@@ -1,7 +1,23 @@
 /**
  * Скрипт для управления тест-раннером
  */
+// @ts-expect-error Модуль загружается в браузере вместе с тестовым раннером
 import { runner } from '../test/framework.js';
+
+type TestResult = {
+  name: string;
+  duration: number;
+  passed: boolean;
+  error?: string;
+};
+
+type SuiteResult = {
+  name: string;
+  duration: number;
+  passed: number;
+  failed: number;
+  tests: TestResult[];
+};
 
 // Импортируем все тесты
 import '../test/parser.test.js';
@@ -49,7 +65,7 @@ function runTests() {
 }
 
 function renderResults() {
-  const suites = runner.getSuites();
+  const suites = runner.getSuites() as SuiteResult[];
   const stats = runner.getTotalStats();
   
   // Обновляем статистику
@@ -81,10 +97,10 @@ function renderResults() {
   // Обновляем прогресс
   const progress = stats.total > 0 ? (stats.passed / stats.total) * 100 : 0;
   const progressEl = document.getElementById('progress') as HTMLElement;
-  if (progressEl) progressEl.style.width = progress + '%';
+  if (progressEl) progressEl.style.setProperty('--progress-width', `${progress}%`);
   
   // Рендерим наборы тестов
-  const resultsHtml = suites.map(suite => {
+  const resultsHtml = suites.map((suite: SuiteResult) => {
     const allPassed = suite.failed === 0;
     const badgeClass = allPassed ? 'success' : 'error';
     const badgeText = `${suite.passed}/${suite.tests.length}`;
@@ -99,7 +115,7 @@ function renderResults() {
           </div>
         </div>
         <div class="suite-body">
-          ${suite.tests.map(test => `
+          ${suite.tests.map((test: TestResult) => `
             <div class="test ${test.passed ? 'passed' : 'failed'}">
               <div class="test-name">
                 <span class="test-status ${test.passed ? 'passed' : 'failed'}">
@@ -156,13 +172,13 @@ function filterTests(filter: string) {
   document.querySelectorAll('.suite').forEach(suite => {
     const status = (suite as HTMLElement).dataset.status;
     if (filter === 'all') {
-      (suite as HTMLElement).style.display = 'block';
+      suite.classList.remove('suite-hidden');
     } else if (filter === 'passed' && status === 'passed') {
-      (suite as HTMLElement).style.display = 'block';
+      suite.classList.remove('suite-hidden');
     } else if (filter === 'failed' && status === 'failed') {
-      (suite as HTMLElement).style.display = 'block';
+      suite.classList.remove('suite-hidden');
     } else {
-      (suite as HTMLElement).style.display = 'none';
+      suite.classList.add('suite-hidden');
     }
   });
 }

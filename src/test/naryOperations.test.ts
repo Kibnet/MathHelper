@@ -176,7 +176,7 @@ describe('N-ary Operations Highlighting', () => {
     const charTexts = Array.from(charSpans).map(span => span.textContent);
     expect(charTexts).toEqual(['+', '+', '+']);
     
-    // Проверяем базовое позиционирование (должно быть задано)
-    expect(labelContainer!.style.position).toBe('absolute');
+    // Проверяем, что контейнер помечен правильным классом
+    expect(labelContainer!.classList.contains('frame-label-container')).toBe(true);
   });
 });

@@ -363,17 +363,6 @@ function evaluatePairAt(node: OperatorNode, index: number, operator: string): AS
   };
 }
 
-function evaluateMultiplication(node: ASTNode): ConstantNode {
-  const n = node as OperatorNode;
-  const left = n.children[0] as ConstantNode;
-  const right = n.children[1] as ConstantNode;
-  return {
-    id: generateId(),
-    type: 'constant',
-    value: left.value * right.value
-  };
-}
-
 function evaluateDivision(node: ASTNode): ConstantNode {
   const n = node as OperatorNode;
   const left = n.children[0] as ConstantNode;
@@ -382,28 +371,6 @@ function evaluateDivision(node: ASTNode): ConstantNode {
     id: generateId(),
     type: 'constant',
     value: left.value / right.value
-  };
-}
-
-function evaluateAddition(node: ASTNode): ConstantNode {
-  const n = node as OperatorNode;
-  const left = n.children[0] as ConstantNode;
-  const right = n.children[1] as ConstantNode;
-  return {
-    id: generateId(),
-    type: 'constant',
-    value: left.value + right.value
-  };
-}
-
-function evaluateSubtraction(node: ASTNode): ConstantNode {
-  const n = node as OperatorNode;
-  const left = n.children[0] as ConstantNode;
-  const right = n.children[1] as ConstantNode;
-  return {
-    id: generateId(),
-    type: 'constant',
-    value: left.value - right.value
   };
 }
 
@@ -479,11 +446,6 @@ function removeAdditionOfZero(node: ASTNode): ASTNode {
     id: generateId(),
     children: newChildren
   };
-}
-
-function removeSubtractionOfZero(node: ASTNode): ASTNode {
-  const n = node as OperatorNode;
-  return n.children[0];
 }
 
 function removeDoubleNegation(node: ASTNode): ASTNode {

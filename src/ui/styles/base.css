@@ -102,3 +102,10 @@ button.secondary:hover {
 .error-message.show {
   display: block;
 }
+
+.measure-span {
+  font: 1.3rem "Courier New", monospace;
+  visibility: hidden;
+  position: absolute;
+  white-space: pre;
+}
