@@ -59,7 +59,8 @@ describe('ExpressionDisplay', () => {
     expect(label).toBeTruthy();
     
     // Проверяем, что позиция установлена
-    expect(label.style.position).toBe('absolute');
+    expect(label.classList.contains('frame-label')).toBe(true);
+    expect(label.style.left).not.toBe('');
   });
 
   it('should position frame labels correctly for different node types', () => {

@@ -81,7 +81,7 @@ function renderResults() {
   // Обновляем прогресс
   const progress = stats.total > 0 ? (stats.passed / stats.total) * 100 : 0;
   const progressEl = document.getElementById('progress') as HTMLElement;
-  if (progressEl) progressEl.style.width = progress + '%';
+  if (progressEl) progressEl.style.setProperty('--progress-width', `${progress}%`);
   
   // Рендерим наборы тестов
   const resultsHtml = suites.map(suite => {
@@ -156,13 +156,13 @@ function filterTests(filter: string) {
   document.querySelectorAll('.suite').forEach(suite => {
     const status = (suite as HTMLElement).dataset.status;
     if (filter === 'all') {
-      (suite as HTMLElement).style.display = 'block';
+      suite.classList.remove('suite-hidden');
     } else if (filter === 'passed' && status === 'passed') {
-      (suite as HTMLElement).style.display = 'block';
+      suite.classList.remove('suite-hidden');
     } else if (filter === 'failed' && status === 'failed') {
-      (suite as HTMLElement).style.display = 'block';
+      suite.classList.remove('suite-hidden');
     } else {
-      (suite as HTMLElement).style.display = 'none';
+      suite.classList.add('suite-hidden');
     }
   });
 }

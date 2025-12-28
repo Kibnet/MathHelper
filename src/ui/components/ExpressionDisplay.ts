@@ -43,7 +43,7 @@ export class ExpressionDisplay {
       const tokenSpan = document.createElement('span');
       tokenSpan.className = 'token';
       tokenSpan.textContent = token.value;
-      tokenSpan.style.color = getTokenColor(token.type);
+      tokenSpan.style.setProperty('--token-color', getTokenColor(token.type));
       
       // Добавляем уникальный ID токена
       tokenSpan.dataset.tokenId = `token_${tokenIndex}`;
@@ -136,12 +136,6 @@ export class ExpressionDisplay {
       // Создаём метку с ГЛАВНЫМ элементом узла внутри рамки
       const labelContainer = document.createElement('div');
       labelContainer.className = 'frame-label-container';
-      labelContainer.style.position = 'absolute';
-      labelContainer.style.bottom = '2px';
-      labelContainer.style.left = '0';
-      labelContainer.style.width = '100%';
-      labelContainer.style.height = 'auto';
-      labelContainer.style.pointerEvents = 'none';
       
       const labelText = this.getNodeLabel(pos.node);
       
@@ -159,11 +153,6 @@ export class ExpressionDisplay {
           const charSpan = document.createElement('span');
           charSpan.className = 'frame-label';
           charSpan.textContent = labelText[i];
-          charSpan.style.fontFamily = "'Courier New', monospace";
-          charSpan.style.fontSize = '0.65rem';
-          charSpan.style.opacity = '0.8';
-          charSpan.style.position = 'absolute';
-          charSpan.style.pointerEvents = 'none';
           
           // Если у нас есть информация о позициях операторов, позиционируем каждый символ
           if (operatorTokens[i]) {
@@ -193,11 +182,6 @@ export class ExpressionDisplay {
           const charSpan = document.createElement('span');
           charSpan.className = 'frame-label';
           charSpan.textContent = labelText[i];
-          charSpan.style.fontFamily = "'Courier New', monospace";
-          charSpan.style.fontSize = '0.65rem';
-          charSpan.style.opacity = '0.8';
-          charSpan.style.position = 'absolute';
-          charSpan.style.pointerEvents = 'none';
           
           // Для неявного умножения позиционируем символы между операндами
           if (operandTokens[i] && operandTokens[i + 1]) {
@@ -229,11 +213,6 @@ export class ExpressionDisplay {
           const charSpan = document.createElement('span');
           charSpan.className = 'frame-label';
           charSpan.textContent = labelText[i];
-          charSpan.style.fontFamily = "'Courier New', monospace";
-          charSpan.style.fontSize = '0.65rem';
-          charSpan.style.opacity = '0.8';
-          charSpan.style.position = 'absolute';
-          charSpan.style.pointerEvents = 'none';
           
           // Позиционируем каждую скобку
           if (bracketTokens[i]) {
@@ -259,19 +238,15 @@ export class ExpressionDisplay {
         const labelPosition = this.calculateLabelPosition(pos.node, (pos as any).tokens || [], pos.left);
         console.log('Label position result:', labelPosition);
         if (labelPosition) {
-          label.style.position = 'absolute';
+          label.classList.add('frame-label-left');
           label.style.left = labelPosition.left + 'px';
           // Устанавливаем рассчитанную ширину для правильного выравнивания
           label.style.width = labelPosition.width + 'px';
-          label.style.textAlign = 'left'; // Выравниваем по левому краю для точного позиционирования
           console.log('Applied label styles:', label.style.left, label.style.width);
         } else {
           console.warn('No label position calculated!');
           // Резервное позиционирование
-          label.style.position = 'absolute';
-          label.style.left = '0px';
-          label.style.width = 'auto';
-          label.style.textAlign = 'center';
+          label.classList.add('frame-label-center');
         }
         
         labelContainer.appendChild(label);

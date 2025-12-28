@@ -30,16 +30,7 @@ export class CommandPanel {
     
     // Показываем выбранное выражение
     const selectionDiv = document.createElement('div');
-    selectionDiv.style.cssText = `
-      background: var(--accent-soft);
-      border: 1px solid var(--accent);
-      border-radius: 6px;
-      padding: 8px 12px;
-      margin-bottom: 15px;
-      color: var(--accent);
-      font-family: 'Courier New', monospace;
-      word-break: break-all;
-    `;
+    selectionDiv.className = 'command-selection';
     selectionDiv.textContent = `Выбрано: ${text}`;
     this.container.appendChild(selectionDiv);
     
@@ -59,8 +50,7 @@ export class CommandPanel {
     Object.entries(grouped).forEach(([category, categoryRules]) => {
       const categoryDiv = document.createElement('div');
       categoryDiv.className = 'command-category';
-      if (category === '1. Computation') categoryDiv.style.marginTop = '0';
-      if (category === '1. Computation') categoryDiv.style.borderTop = 'none';
+      if (category === '1. Computation') categoryDiv.classList.add('command-category-first');
       categoryDiv.textContent = category;
       this.container.appendChild(categoryDiv);
       

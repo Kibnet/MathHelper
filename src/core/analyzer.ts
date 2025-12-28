@@ -276,10 +276,7 @@ export function measureTextWidth(text: string): number {
   }
   
   const span = document.createElement('span');
-  span.style.font = '1.3rem "Courier New", monospace';
-  span.style.visibility = 'hidden';
-  span.style.position = 'absolute';
-  span.style.whiteSpace = 'pre';
+  span.className = 'measure-span';
   span.textContent = text;
   document.body.appendChild(span);
   const width = span.offsetWidth;

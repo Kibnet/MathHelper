@@ -256,6 +256,7 @@
   padding: 2px 1px;
   border-radius: 3px;
   transition: all 0.2s;
+  color: var(--token-color, currentColor);
 }
 
 .token:hover,
@@ -386,6 +387,16 @@
   position: absolute; /* Добавляем абсолютное позиционирование */
 }
 
+.frame-label-left {
+  text-align: left;
+}
+
+.frame-label-center {
+  left: 0;
+  width: auto;
+  text-align: center;
+}
+
 /* Контейнер для меток */
 .frame-label-container {
   position: absolute;
@@ -444,6 +455,22 @@
   font-size: 0.8rem;
   color: var(--text-muted);
   font-family: 'Courier New', monospace;
+}
+
+.command-selection {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 15px;
+  color: var(--accent);
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+}
+
+.command-category-first {
+  margin-top: 0;
+  border-top: none;
 }
 
 /* История */

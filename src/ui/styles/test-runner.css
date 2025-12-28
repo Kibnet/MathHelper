@@ -104,6 +104,10 @@ button:disabled {
   border: 1px solid var(--border);
 }
 
+.suite.suite-hidden {
+  display: none;
+}
+
 .suite-header {
   padding: 15px 20px;
   background: var(--bg-hover);
@@ -232,6 +236,7 @@ button:disabled {
   height: 100%;
   background: linear-gradient(90deg, var(--info), var(--success));
   transition: width 0.3s ease;
+  width: var(--progress-width, 0%);
 }
 
 .filter-bar {
