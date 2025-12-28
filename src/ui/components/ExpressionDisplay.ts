@@ -2,8 +2,7 @@
  * Компонент отображения выражения с токенизацией и фреймами подвыражений
  */
 import { tokenize, getTokenTypeName, getTokenColor } from '../../utils/tokenizer.js';
-import { extractNodesFromAST, assignLevels, calculateFramePositions, calculateTotalHeight } from '../../core/analyzer.js';
-import { getApplicableRules } from '../../core/rules.js';
+import { extractNodesFromAST, assignLevels, calculateTotalHeight } from '../../core/analyzer.js';
 import type { ASTNode } from '../../types/index.js';
 
 export interface ExpressionDisplayConfig {
@@ -294,7 +293,6 @@ export class ExpressionDisplay {
       // Находим токены, которые входят в диапазон подвыражения [start, end)
       const relevantTokens = tokens.filter(token => {
         const tokenStart = parseInt((token as HTMLElement).dataset.start || '0');
-        const tokenEnd = parseInt((token as HTMLElement).dataset.end || '0');
         // Токен входит, если он начинается в диапазоне [subexpr.start, subexpr.end)
         return tokenStart >= subexpr.start && tokenStart < subexpr.end;
       });
@@ -720,7 +718,7 @@ export class ExpressionDisplay {
             // Находим токены операндов
             const firstToken = tokens[0] as HTMLElement;
             // Ищем токен, который соответствует началу второго операнда
-            let secondToken = tokens.find((t, i) => i > 0) as HTMLElement;
+            let secondToken = tokens.find((_, i) => i > 0) as HTMLElement;
             
             // Если не нашли второй токен, используем последний
             if (!secondToken) {

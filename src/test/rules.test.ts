@@ -222,7 +222,6 @@ describe('Rules - Transformations (Priority 3)', () => {
     const mulNode = tree.children[1];
     const rules = getApplicableRules(mulNode);
     
-    const distRule = rules.find(r => r.id === 'distributive_forward');
     // Правило не применяется к group узлам, это ожидаемое поведение
     // Вместо этого проверим, что система вообще работает
     expect(rules.length).toBeGreaterThan(0);
