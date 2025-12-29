@@ -210,6 +210,34 @@ describe('Rules - Simplification (Priority 2)', () => {
       expect(expressionToString(result)).toBe('x');
     }
   });
+
+  it('should remove double parentheses', () => {
+    const parser = new ExpressionParser('((x))');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+    
+    const simplifyRule = rules.find(r => r.id === 'remove_double_parens');
+    expect(simplifyRule).toBeTruthy();
+    
+    if (simplifyRule) {
+      const result = simplifyRule.apply(node);
+      expect(expressionToString(result)).toBe('(x)');
+    }
+  });
+
+  it('should remove parentheses after unary minus for atom', () => {
+    const parser = new ExpressionParser('-(x)');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+    
+    const simplifyRule = rules.find(r => r.id === 'remove_unary_parens');
+    expect(simplifyRule).toBeTruthy();
+    
+    if (simplifyRule) {
+      const result = simplifyRule.apply(node);
+      expect(expressionToString(result)).toBe('-x');
+    }
+  });
 });
 
 describe('Rules - Transformations (Priority 3)', () => {
@@ -271,6 +299,193 @@ describe('Rules - Transformations (Priority 3)', () => {
     if (distRule) {
       const result = distRule.apply(testNode);
       expect(expressionToString(result)).toBe('a * c + b * c');
+    }
+  });
+
+  it('should flatten nested addition with associativity', () => {
+    const parser1 = new ExpressionParser('a + b');
+    const parser2 = new ExpressionParser('c');
+    const aPlusB = parser1.parse();
+    const c = parser2.parse();
+    
+    const testNode: any = {
+      id: 'test',
+      type: 'operator',
+      value: '+',
+      children: [aPlusB, c]
+    };
+    
+    const rules = getApplicableRules(testNode);
+    const assocRule = rules.find(r => r.id === 'assoc_flatten_add');
+    expect(assocRule).toBeTruthy();
+    
+    if (assocRule) {
+      const result = assocRule.apply(testNode);
+      expect(expressionToString(result)).toBe('a + b + c');
+    }
+  });
+
+  it('should flatten nested multiplication with associativity', () => {
+    const parser1 = new ExpressionParser('a * b');
+    const parser2 = new ExpressionParser('c');
+    const aTimesB = parser1.parse();
+    const c = parser2.parse();
+    
+    const testNode: any = {
+      id: 'test',
+      type: 'operator',
+      value: '*',
+      children: [aTimesB, c]
+    };
+    
+    const rules = getApplicableRules(testNode);
+    const assocRule = rules.find(r => r.id === 'assoc_flatten_mul');
+    expect(assocRule).toBeTruthy();
+    
+    if (assocRule) {
+      const result = assocRule.apply(testNode);
+      expect(expressionToString(result)).toBe('a * b * c');
+    }
+  });
+
+  it('should factor out common left factor', () => {
+    const parser = new ExpressionParser('a * b + a * c');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+    
+    const factorRule = rules.find(r => r.id.startsWith('factor_common_left_'));
+    expect(factorRule).toBeTruthy();
+    
+    if (factorRule) {
+      const result = factorRule.apply(node);
+      expect(expressionToString(result)).toBe('a * (b + c)');
+    }
+  });
+
+  it('should factor out common right factor', () => {
+    const parser = new ExpressionParser('b * a + c * a');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+    
+    const factorRule = rules.find(r => r.id.startsWith('factor_common_right_'));
+    expect(factorRule).toBeTruthy();
+    
+    if (factorRule) {
+      const result = factorRule.apply(node);
+      expect(expressionToString(result)).toBe('(b + c) * a');
+    }
+  });
+
+  it('should distribute unary minus over sum', () => {
+    const parser = new ExpressionParser('-(a + b)');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+    
+    const distRule = rules.find(r => r.id === 'distribute_unary_minus');
+    expect(distRule).toBeTruthy();
+    
+    if (distRule) {
+      const result = distRule.apply(node);
+      expect(expressionToString(result)).toBe('(-a + -b)');
+    }
+  });
+
+  it('should keep grouping when distributing unary minus inside multiplication', () => {
+    const parser = new ExpressionParser('x * -(a + b)');
+    const node = parser.parse() as any;
+    const unaryNode = node.children[1];
+    const rules = getApplicableRules(unaryNode);
+
+    const distRule = rules.find(r => r.id === 'distribute_unary_minus');
+    expect(distRule).toBeTruthy();
+
+    if (distRule) {
+      const result = distRule.apply(unaryNode);
+      expect(expressionToString(result)).toBe('(-a + -b)');
+    }
+  });
+
+  it('should factor unary minus from sum', () => {
+    const parser = new ExpressionParser('-a - b');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+    
+    const factorRule = rules.find(r => r.id === 'factor_unary_minus');
+    expect(factorRule).toBeTruthy();
+    
+    if (factorRule) {
+      const result = factorRule.apply(node);
+      expect(expressionToString(result)).toBe('-(a + b)');
+    }
+  });
+
+  it('should pull unary minus from multiplication', () => {
+    const parser = new ExpressionParser('-a * b');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+    
+    const pullRule = rules.find(r => r.id.startsWith('pull_unary_minus_mul_'));
+    expect(pullRule).toBeTruthy();
+    
+    if (pullRule) {
+      const result = pullRule.apply(node);
+      expect(expressionToString(result)).toBe('-(a * b)');
+    }
+  });
+
+  it('should convert division to multiplication by reciprocal', () => {
+    const parser = new ExpressionParser('a / b');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+    
+    const divRule = rules.find(r => r.id === 'div_to_mul_inverse');
+    expect(divRule).toBeTruthy();
+    
+    if (divRule) {
+      const result = divRule.apply(node);
+      expect(expressionToString(result)).toBe('a * (1 / b)');
+    }
+  });
+
+  it('should pull unary minus from division numerator', () => {
+    const parser = new ExpressionParser('(-a) / b');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+    
+    const divRule = rules.find(r => r.id === 'pull_unary_minus_div_left');
+    expect(divRule).toBeTruthy();
+    
+    if (divRule) {
+      const result = divRule.apply(node);
+      expect(expressionToString(result)).toBe('-(a / b)');
+    }
+  });
+
+  it('should pull unary minus from division denominator', () => {
+    const parser = new ExpressionParser('a / (-b)');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+    
+    const divRule = rules.find(r => r.id === 'pull_unary_minus_div_right');
+    expect(divRule).toBeTruthy();
+    
+    if (divRule) {
+      const result = divRule.apply(node);
+      expect(expressionToString(result)).toBe('-(a / b)');
+    }
+  });
+
+  it('should remove double negative in division', () => {
+    const parser = new ExpressionParser('(-a) / (-b)');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+    
+    const divRule = rules.find(r => r.id === 'remove_double_neg_div');
+    expect(divRule).toBeTruthy();
+    
+    if (divRule) {
+      const result = divRule.apply(node);
+      expect(expressionToString(result)).toBe('a / b');
     }
   });
 });

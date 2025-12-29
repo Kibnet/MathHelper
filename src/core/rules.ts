@@ -3,8 +3,9 @@
  * Определяет все доступные правила преобразования и их применимость
  */
 
-import type { ASTNode, ConstantNode, OperatorNode, TransformationRule, ImplicitMulNode } from '../types/index.js';
+import type { ASTNode, ConstantNode, OperatorNode, TransformationRule, ImplicitMulNode, GroupNode, UnaryNode } from '../types/index.js';
 import { generateId } from './parser.js';
+import { nodesEqual } from '../utils/helpers.js';
 
 /**
  * Получить все применимые правила преобразования для узла
@@ -158,9 +159,56 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
       apply: removeParentheses
     });
   }
+
+  if (node.type === 'group' && node.children[0].type === 'group') {
+    rules.push({
+      id: 'remove_double_parens',
+      name: '→ Убрать двойные скобки',
+      category: '2. Упрощения',
+      preview: '((a)) → (a)',
+      apply: removeDoubleParentheses
+    });
+  }
+
+  if (node.type === 'unary' && node.children[0].type === 'group') {
+    const groupChild = node.children[0] as GroupNode;
+    if (groupChild.children[0].type !== 'operator') {
+      rules.push({
+        id: 'remove_unary_parens',
+        name: '→ Убрать скобки после минуса',
+        category: '2. Упрощения',
+        preview: '-(a) → -a',
+        apply: removeUnaryParentheses
+      });
+    }
+  }
   
   // === ПРИОРИТЕТ 3: ПРЕОБРАЗОВАНИЯ ===
   
+  if (node.type === 'operator' && node.value === '+') {
+    if (node.children.some(child => child.type === 'operator' && child.value === '+')) {
+      rules.push({
+        id: 'assoc_flatten_add',
+        name: '→ Снять ассоциативные скобки',
+        category: '3. Преобразования',
+        preview: '(a+b)+c → a+b+c',
+        apply: flattenAddition
+      });
+    }
+  }
+
+  if (node.type === 'operator' && node.value === '*') {
+    if (node.children.some(child => child.type === 'operator' && child.value === '*')) {
+      rules.push({
+        id: 'assoc_flatten_mul',
+        name: '→ Снять ассоциативные скобки',
+        category: '3. Преобразования',
+        preview: '(a*b)*c → a*b*c',
+        apply: flattenMultiplication
+      });
+    }
+  }
+
   if (node.type === 'operator' && node.value === '*') {
     if (node.children[1].type === 'operator' && 
         (node.children[1].value === '+' || node.children[1].value === '-')) {
@@ -183,6 +231,98 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
         apply: applyDistributiveForwardLeft
       });
     }
+  }
+
+  if (node.type === 'operator' && node.value === '+') {
+    const factorPairs = findCommonFactorPairs(node);
+    for (const pair of factorPairs) {
+      rules.push({
+        id: `${pair.ruleId}_${pair.leftIndex}_${pair.rightIndex}`,
+        name: '→ Вынести общий множитель',
+        category: '3. Преобразования',
+        preview: pair.preview,
+        apply: (n: ASTNode) => factorCommonFromSum(n as OperatorNode, pair)
+      });
+    }
+  }
+
+  if (node.type === 'unary') {
+    const target = getUnaryTarget(node);
+    if (target && target.type === 'operator' && target.value === '+') {
+      rules.push({
+        id: 'distribute_unary_minus',
+        name: '→ Распределить минус по сумме',
+        category: '3. Преобразования',
+        preview: '-(a+b) → -a + -b',
+        apply: distributeUnaryMinusOverSum
+      });
+    }
+  }
+
+  if (node.type === 'operator' && node.value === '+') {
+    if (node.children.length >= 2 && node.children.every(isUnaryMinusNode)) {
+      rules.push({
+        id: 'factor_unary_minus',
+        name: '→ Вынести минус из суммы',
+        category: '3. Преобразования',
+        preview: '-a + -b → -(a+b)',
+        apply: factorUnaryMinusFromSum
+      });
+    }
+  }
+
+  if (node.type === 'operator' && node.value === '*') {
+    const unaryIndices = node.children
+      .map((child, index) => (isUnaryMinusNode(child) ? index : -1))
+      .filter(index => index !== -1);
+    for (const index of unaryIndices) {
+      rules.push({
+        id: `pull_unary_minus_mul_${index}`,
+        name: '→ Вынести минус из произведения',
+        category: '3. Преобразования',
+        preview: '-a*b → -(a*b)',
+        apply: (n: ASTNode) => pullUnaryMinusFromMultiplication(n as OperatorNode, index)
+      });
+    }
+  }
+
+  if (node.type === 'operator' && node.value === '/') {
+    const leftUnary = getUnaryNode(node.children[0]);
+    const rightUnary = getUnaryNode(node.children[1]);
+    if (leftUnary && rightUnary) {
+      rules.push({
+        id: 'remove_double_neg_div',
+        name: '→ Убрать двойной минус в дроби',
+        category: '3. Преобразования',
+        preview: '(-a)/(-b) → a/b',
+        apply: removeDoubleNegationInDivision
+      });
+    }
+    if (leftUnary) {
+      rules.push({
+        id: 'pull_unary_minus_div_left',
+        name: '→ Вынести минус из числителя',
+        category: '3. Преобразования',
+        preview: '(-a)/b → -(a/b)',
+        apply: pullUnaryMinusFromDivisionLeft
+      });
+    }
+    if (rightUnary) {
+      rules.push({
+        id: 'pull_unary_minus_div_right',
+        name: '→ Вынести минус из знаменателя',
+        category: '3. Преобразования',
+        preview: 'a/(-b) → -(a/b)',
+        apply: pullUnaryMinusFromDivisionRight
+      });
+    }
+    rules.push({
+      id: 'div_to_mul_inverse',
+      name: '→ Заменить деление на умножение',
+      category: '3. Преобразования',
+      preview: 'a/b → a*(1/b)',
+      apply: convertDivisionToMultiplication
+    });
   }
   
   // === ПРИОРИТЕТ 4: ПЕРЕСТАНОВКА ===
@@ -459,6 +599,21 @@ function removeParentheses(node: ASTNode): ASTNode {
   return n.children[0];
 }
 
+function removeDoubleParentheses(node: ASTNode): GroupNode {
+  const n = node as GroupNode;
+  return n.children[0] as GroupNode;
+}
+
+function removeUnaryParentheses(node: ASTNode): UnaryNode {
+  const n = node as UnaryNode;
+  const group = n.children[0] as GroupNode;
+  return {
+    ...n,
+    id: generateId(),
+    children: [group.children[0]]
+  };
+}
+
 function applyCommutative(node: ASTNode): OperatorNode {
   const n = node as OperatorNode;
   return {
@@ -502,6 +657,123 @@ function applyDistributiveForwardLeft(node: ASTNode): OperatorNode {
       { id: generateId(), type: 'operator', value: '*', children: [b, c] }
     ]
   };
+}
+
+function flattenAddition(node: ASTNode): ASTNode {
+  return flattenAssociative(node as OperatorNode, '+');
+}
+
+function flattenMultiplication(node: ASTNode): ASTNode {
+  return flattenAssociative(node as OperatorNode, '*');
+}
+
+function flattenAssociative(node: OperatorNode, operator: '+' | '*'): ASTNode {
+  const newChildren: ASTNode[] = [];
+  for (const child of node.children) {
+    if (child.type === 'operator' && child.value === operator) {
+      newChildren.push(...child.children);
+    } else {
+      newChildren.push(child);
+    }
+  }
+  if (newChildren.length === 1) {
+    return newChildren[0];
+  }
+  return {
+    ...node,
+    id: generateId(),
+    value: operator,
+    children: newChildren
+  };
+}
+
+function factorCommonFromSum(node: OperatorNode, match: CommonFactorMatch): ASTNode {
+  const leftTerm = node.children[match.leftIndex];
+  const rightTerm = node.children[match.rightIndex];
+  if (!leftTerm || !rightTerm) {
+    return node;
+  }
+
+  const leftRemainder = extractRemainderFromTerm(leftTerm, match.factor, match.side);
+  const rightRemainder = extractRemainderFromTerm(rightTerm, match.factor, match.side);
+
+  const sumNode = createAdditionNode([leftRemainder, rightRemainder]);
+  const groupedSum = wrapInGroup(sumNode);
+  const productNode = match.side === 'right'
+    ? createMultiplicationNode([groupedSum, match.factor])
+    : createMultiplicationNode([match.factor, groupedSum]);
+
+  const newChildren = node.children.filter((_, index) => index !== match.leftIndex && index !== match.rightIndex);
+  newChildren.splice(Math.min(match.leftIndex, match.rightIndex), 0, productNode);
+
+  if (newChildren.length === 1) {
+    return newChildren[0];
+  }
+
+  return {
+    ...node,
+    id: generateId(),
+    children: newChildren
+  };
+}
+
+function distributeUnaryMinusOverSum(node: ASTNode): ASTNode {
+  const unaryNode = node as UnaryNode;
+  const target = getUnaryTarget(unaryNode);
+  if (!target || target.type !== 'operator' || target.value !== '+') {
+    return node;
+  }
+
+  const newChildren = target.children.map(child => createUnaryMinus(child));
+  return wrapInGroup(createAdditionNode(newChildren));
+}
+
+function factorUnaryMinusFromSum(node: ASTNode): ASTNode {
+  const sumNode = node as OperatorNode;
+  const innerChildren = sumNode.children.map(child => (child as UnaryNode).children[0]);
+  const newSum = createAdditionNode(innerChildren);
+  return createUnaryMinus(newSum);
+}
+
+function pullUnaryMinusFromMultiplication(node: OperatorNode, index: number): ASTNode {
+  const target = node.children[index] as UnaryNode;
+  const newChildren = node.children.map((child, childIndex) => {
+    if (childIndex === index) {
+      return target.children[0];
+    }
+    return child;
+  });
+  const product = createMultiplicationNode(newChildren);
+  return createUnaryMinus(product);
+}
+
+function removeDoubleNegationInDivision(node: ASTNode): ASTNode {
+  const divNode = node as OperatorNode;
+  const left = unwrapUnaryNode(divNode.children[0]).inner;
+  const right = unwrapUnaryNode(divNode.children[1]).inner;
+  return createDivisionNode(left, right);
+}
+
+function pullUnaryMinusFromDivisionLeft(node: ASTNode): ASTNode {
+  const divNode = node as OperatorNode;
+  const left = unwrapUnaryNode(divNode.children[0]).inner;
+  const right = divNode.children[1];
+  return createUnaryMinus(createDivisionNode(left, right));
+}
+
+function pullUnaryMinusFromDivisionRight(node: ASTNode): ASTNode {
+  const divNode = node as OperatorNode;
+  const left = divNode.children[0];
+  const right = unwrapUnaryNode(divNode.children[1]).inner;
+  return createUnaryMinus(createDivisionNode(left, right));
+}
+
+function convertDivisionToMultiplication(node: ASTNode): ASTNode {
+  const divNode = node as OperatorNode;
+  const left = divNode.children[0];
+  const right = divNode.children[1];
+  const reciprocal = wrapInGroup(createDivisionNode(createConstantNode(1), right));
+  return createMultiplicationNode([left, reciprocal]);
 }
 
 function addParentheses(node: ASTNode): import('../types/index.js').GroupNode {
@@ -589,4 +861,166 @@ function collapseToImplicitMultiplication(node: ASTNode): ImplicitMulNode {
     value: '*',
     children: [...n.children] // Копируем весь массив детей
   };
+}
+
+function getUnaryTarget(node: UnaryNode): ASTNode | null {
+  const child = node.children[0];
+  if (child.type === 'group') {
+    return child.children[0];
+  }
+  return child;
+}
+
+function isUnaryMinusNode(node: ASTNode): node is UnaryNode {
+  return node.type === 'unary' && node.value === '-';
+}
+
+function getUnaryNode(node: ASTNode): UnaryNode | null {
+  if (node.type === 'unary' && node.value === '-') {
+    return node;
+  }
+  if (node.type === 'group' && node.children[0].type === 'unary') {
+    return node.children[0];
+  }
+  return null;
+}
+
+function unwrapUnaryNode(node: ASTNode): { unary: UnaryNode; inner: ASTNode } {
+  const unaryNode = getUnaryNode(node);
+  if (!unaryNode) {
+    return { unary: node as UnaryNode, inner: node };
+  }
+  return { unary: unaryNode, inner: unaryNode.children[0] };
+}
+
+function createUnaryMinus(node: ASTNode): UnaryNode {
+  return {
+    id: generateId(),
+    type: 'unary',
+    value: '-',
+    children: [node]
+  };
+}
+
+function createAdditionNode(children: ASTNode[]): ASTNode {
+  if (children.length === 1) {
+    return children[0];
+  }
+  return {
+    id: generateId(),
+    type: 'operator',
+    value: '+',
+    children
+  };
+}
+
+function createMultiplicationNode(children: ASTNode[]): ASTNode {
+  if (children.length === 1) {
+    return children[0];
+  }
+  return {
+    id: generateId(),
+    type: 'operator',
+    value: '*',
+    children
+  };
+}
+
+function createDivisionNode(left: ASTNode, right: ASTNode): OperatorNode {
+  return {
+    id: generateId(),
+    type: 'operator',
+    value: '/',
+    children: [left, right]
+  };
+}
+
+function createConstantNode(value: number): ConstantNode {
+  return {
+    id: generateId(),
+    type: 'constant',
+    value
+  };
+}
+
+function wrapInGroup(node: ASTNode): GroupNode {
+  return {
+    id: generateId(),
+    type: 'group',
+    value: 'group',
+    children: [node]
+  };
+}
+
+type CommonFactorMatch = {
+  leftIndex: number;
+  rightIndex: number;
+  factor: ASTNode;
+  side: 'left' | 'right';
+  ruleId: string;
+  preview: string;
+};
+
+function findCommonFactorPairs(node: OperatorNode): CommonFactorMatch[] {
+  const matches: CommonFactorMatch[] = [];
+  for (let i = 0; i < node.children.length - 1; i++) {
+    for (let j = i + 1; j < node.children.length; j++) {
+      const left = node.children[i];
+      const right = node.children[j];
+      if (left.type !== 'operator' || left.value !== '*' || right.type !== 'operator' || right.value !== '*') {
+        continue;
+      }
+      const leftFirst = left.children[0];
+      const rightFirst = right.children[0];
+      if (leftFirst && rightFirst && nodesEqual(leftFirst, rightFirst)) {
+        matches.push({
+          leftIndex: i,
+          rightIndex: j,
+          factor: leftFirst,
+          side: 'left',
+          ruleId: 'factor_common_left',
+          preview: 'a*b + a*c → a*(b+c)'
+        });
+      }
+      const leftLast = left.children[left.children.length - 1];
+      const rightLast = right.children[right.children.length - 1];
+      if (leftLast && rightLast && nodesEqual(leftLast, rightLast)) {
+        matches.push({
+          leftIndex: i,
+          rightIndex: j,
+          factor: leftLast,
+          side: 'right',
+          ruleId: 'factor_common_right',
+          preview: 'b*a + c*a → (b+c)*a'
+        });
+      }
+    }
+  }
+  return matches;
+}
+
+function extractRemainderFromTerm(term: ASTNode, factor: ASTNode, side: 'left' | 'right'): ASTNode {
+  if (term.type !== 'operator' || term.value !== '*') {
+    return term;
+  }
+  const children = [...term.children];
+  if (side === 'left') {
+    if (!children[0] || !nodesEqual(children[0], factor)) {
+      return term;
+    }
+    children.shift();
+  } else {
+    if (!children[children.length - 1] || !nodesEqual(children[children.length - 1], factor)) {
+      return term;
+    }
+    children.pop();
+  }
+
+  if (children.length === 0) {
+    return createConstantNode(1);
+  }
+  if (children.length === 1) {
+    return children[0];
+  }
+  return createMultiplicationNode(children);
 }
