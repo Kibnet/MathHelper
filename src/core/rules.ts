@@ -725,7 +725,7 @@ function distributeUnaryMinusOverSum(node: ASTNode): ASTNode {
   }
 
   const newChildren = target.children.map(child => createUnaryMinus(child));
-  return createAdditionNode(newChildren);
+  return wrapInGroup(createAdditionNode(newChildren));
 }
 
 function factorUnaryMinusFromSum(node: ASTNode): ASTNode {

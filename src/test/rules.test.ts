@@ -386,7 +386,22 @@ describe('Rules - Transformations (Priority 3)', () => {
     
     if (distRule) {
       const result = distRule.apply(node);
-      expect(expressionToString(result)).toBe('-a + -b');
+      expect(expressionToString(result)).toBe('(-a + -b)');
+    }
+  });
+
+  it('should keep grouping when distributing unary minus inside multiplication', () => {
+    const parser = new ExpressionParser('x * -(a + b)');
+    const node = parser.parse() as any;
+    const unaryNode = node.children[1];
+    const rules = getApplicableRules(unaryNode);
+
+    const distRule = rules.find(r => r.id === 'distribute_unary_minus');
+    expect(distRule).toBeTruthy();
+
+    if (distRule) {
+      const result = distRule.apply(unaryNode);
+      expect(expressionToString(result)).toBe('(-a + -b)');
     }
   });
 
