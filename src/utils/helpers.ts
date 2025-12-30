@@ -3,7 +3,8 @@
  * Вспомогательные функции для манипуляции с выражениями
  */
 
-import type { ASTNode } from '../types/index.js';
+import type { ASTNode, GroupNode } from '../types/index.js';
+import { generateId } from '../core/parser.js';
 
 /**
  * Преобразовать AST узел в строковое представление
@@ -119,6 +120,39 @@ export function replaceNode(root: ASTNode, targetId: string, newNode: ASTNode): 
   }
   
   return root;
+}
+
+/**
+ * Найти родительский узел по ID дочернего узла
+ */
+export function findParentNode(root: ASTNode, targetId: string): ASTNode | null {
+  if (!('children' in root) || !root.children) {
+    return null;
+  }
+
+  for (const child of root.children) {
+    if (child.id === targetId) {
+      return root;
+    }
+    const found = findParentNode(child, targetId);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Обернуть узел в группу для сохранения приоритета
+ */
+export function wrapInGroup(node: ASTNode): GroupNode {
+  return {
+    id: generateId(),
+    type: 'group',
+    value: 'group',
+    children: [node]
+  };
 }
 
 /**

@@ -209,41 +209,77 @@ export function getApplicableRules(node: ASTNode): TransformationRule[] {
     }
   }
 
-  if (node.type === 'operator' && node.value === '*') {
-    if (node.children[1].type === 'operator' && 
-        (node.children[1].value === '+' || node.children[1].value === '-')) {
+  if (node.type === 'operator' && node.value === '*' && node.children.length === 2) {
+    const rightSum = getAdditionNode(node.children[1]);
+    if (rightSum) {
       rules.push({
         id: 'distributive_forward',
         name: '→ Раскрыть (Распределительное)',
         category: '3. Преобразования',
-        preview: 'a*(b+c) → a*b + a*c',
+        preview: 'a*(b+c+...) → a*b + a*c + ...',
         apply: applyDistributiveForward
       });
     }
-    
-    if (node.children[0].type === 'operator' && 
-        (node.children[0].value === '+' || node.children[0].value === '-')) {
+
+    const leftSum = getAdditionNode(node.children[0]);
+    if (leftSum) {
       rules.push({
         id: 'distributive_forward_left',
         name: '→ Раскрыть (Распределительное)',
         category: '3. Преобразования',
-        preview: '(a+b)*c → a*c + b*c',
+        preview: '(a+b+...)*c → a*c + b*c + ...',
         apply: applyDistributiveForwardLeft
       });
     }
   }
 
   if (node.type === 'operator' && node.value === '+') {
-    const factorPairs = findCommonFactorPairs(node);
-    for (const pair of factorPairs) {
+    const leftCommon = findCommonFactorAcrossSum(node, 'left');
+    if (leftCommon) {
       rules.push({
-        id: `${pair.ruleId}_${pair.leftIndex}_${pair.rightIndex}`,
+        id: 'factor_common_left_all',
         name: '→ Вынести общий множитель',
         category: '3. Преобразования',
-        preview: pair.preview,
-        apply: (n: ASTNode) => factorCommonFromSum(n as OperatorNode, pair)
+        preview: 'a*b + a*c + ... → a*(b+c+...)',
+        apply: (n: ASTNode) => factorCommonAcrossSum(n as OperatorNode, leftCommon)
       });
     }
+
+    const rightCommon = findCommonFactorAcrossSum(node, 'right');
+    if (rightCommon) {
+      rules.push({
+        id: 'factor_common_right_all',
+        name: '→ Вынести общий множитель',
+        category: '3. Преобразования',
+        preview: 'b*a + c*a + ... → (b+c+...)*a',
+        apply: (n: ASTNode) => factorCommonAcrossSum(n as OperatorNode, rightCommon)
+      });
+    }
+  }
+
+  if (node.type === 'operator' && node.value === '+') {
+    node.children.forEach((child, index) => {
+      const explicitNegative = getExplicitNegativeChild(child);
+      if (explicitNegative) {
+        rules.push({
+          id: `sum_to_sub_${index}`,
+          name: '→ Превратить +(-b) в вычитание',
+          category: '3. Преобразования',
+          preview: 'a + (-b) → a - b',
+          apply: (n: ASTNode) => convertExplicitNegativeToSubtraction(n as OperatorNode, index)
+        });
+      }
+
+      if (isImplicitNegativeChild(child)) {
+        rules.push({
+          id: `sub_to_sum_${index}`,
+          name: '→ Превратить вычитание в +(-b)',
+          category: '3. Преобразования',
+          preview: 'a - b → a + (-b)',
+          apply: (n: ASTNode) => convertSubtractionToExplicitNegative(n as OperatorNode, index)
+        });
+      }
+    });
   }
 
   if (node.type === 'unary') {
@@ -623,40 +659,28 @@ function applyCommutative(node: ASTNode): OperatorNode {
   };
 }
 
-function applyDistributiveForward(node: ASTNode): OperatorNode {
+function applyDistributiveForward(node: ASTNode): ASTNode {
   const n = node as OperatorNode;
-  const a = n.children[0];
-  const bc = n.children[1] as OperatorNode;
-  const b = bc.children[0];
-  const c = bc.children[1];
-  
-  return {
-    id: generateId(),
-    type: 'operator',
-    value: bc.value,
-    children: [
-      { id: generateId(), type: 'operator', value: '*', children: [a, b] },
-      { id: generateId(), type: 'operator', value: '*', children: [a, c] }
-    ]
-  };
+  const multiplier = n.children[0];
+  const sumNode = getAdditionNode(n.children[1]);
+  if (!sumNode) {
+    return node;
+  }
+
+  const products = sumNode.children.map(child => createMultiplicationNode([multiplier, child]));
+  return createAdditionNode(products);
 }
 
-function applyDistributiveForwardLeft(node: ASTNode): OperatorNode {
+function applyDistributiveForwardLeft(node: ASTNode): ASTNode {
   const n = node as OperatorNode;
-  const ab = n.children[0] as OperatorNode;
-  const c = n.children[1];
-  const a = ab.children[0];
-  const b = ab.children[1];
-  
-  return {
-    id: generateId(),
-    type: 'operator',
-    value: ab.value,
-    children: [
-      { id: generateId(), type: 'operator', value: '*', children: [a, c] },
-      { id: generateId(), type: 'operator', value: '*', children: [b, c] }
-    ]
-  };
+  const sumNode = getAdditionNode(n.children[0]);
+  const multiplier = n.children[1];
+  if (!sumNode) {
+    return node;
+  }
+
+  const products = sumNode.children.map(child => createMultiplicationNode([child, multiplier]));
+  return createAdditionNode(products);
 }
 
 function flattenAddition(node: ASTNode): ASTNode {
@@ -687,34 +711,13 @@ function flattenAssociative(node: OperatorNode, operator: '+' | '*'): ASTNode {
   };
 }
 
-function factorCommonFromSum(node: OperatorNode, match: CommonFactorMatch): ASTNode {
-  const leftTerm = node.children[match.leftIndex];
-  const rightTerm = node.children[match.rightIndex];
-  if (!leftTerm || !rightTerm) {
-    return node;
-  }
-
-  const leftRemainder = extractRemainderFromTerm(leftTerm, match.factor, match.side);
-  const rightRemainder = extractRemainderFromTerm(rightTerm, match.factor, match.side);
-
-  const sumNode = createAdditionNode([leftRemainder, rightRemainder]);
+function factorCommonAcrossSum(node: OperatorNode, match: CommonFactorAcross): ASTNode {
+  void node;
+  const sumNode = createAdditionNode(match.remainders);
   const groupedSum = wrapInGroup(sumNode);
-  const productNode = match.side === 'right'
+  return match.side === 'right'
     ? createMultiplicationNode([groupedSum, match.factor])
     : createMultiplicationNode([match.factor, groupedSum]);
-
-  const newChildren = node.children.filter((_, index) => index !== match.leftIndex && index !== match.rightIndex);
-  newChildren.splice(Math.min(match.leftIndex, match.rightIndex), 0, productNode);
-
-  if (newChildren.length === 1) {
-    return newChildren[0];
-  }
-
-  return {
-    ...node,
-    id: generateId(),
-    children: newChildren
-  };
 }
 
 function distributeUnaryMinusOverSum(node: ASTNode): ASTNode {
@@ -733,6 +736,69 @@ function factorUnaryMinusFromSum(node: ASTNode): ASTNode {
   const innerChildren = sumNode.children.map(child => (child as UnaryNode).children[0]);
   const newSum = createAdditionNode(innerChildren);
   return createUnaryMinus(newSum);
+}
+
+function convertExplicitNegativeToSubtraction(node: OperatorNode, index: number): ASTNode {
+  const target = node.children[index];
+  const explicitUnary = getExplicitNegativeChild(target);
+  if (!explicitUnary) {
+    return node;
+  }
+
+  let operand = explicitUnary.children[0];
+  if (operand.type === 'operator') {
+    operand = wrapInGroup(operand);
+  }
+
+  const implicitUnary: UnaryNode = {
+    id: generateId(),
+    type: 'unary',
+    value: '-',
+    children: [operand],
+    implicit: true
+  };
+
+  const newChildren = node.children.map((child, childIndex) => {
+    if (childIndex === index) {
+      return implicitUnary;
+    }
+    return child;
+  });
+
+  return {
+    ...node,
+    id: generateId(),
+    children: newChildren
+  };
+}
+
+function convertSubtractionToExplicitNegative(node: OperatorNode, index: number): ASTNode {
+  const target = node.children[index];
+  if (!isImplicitNegativeChild(target)) {
+    return node;
+  }
+
+  const explicitUnary: UnaryNode = {
+    id: generateId(),
+    type: 'unary',
+    value: '-',
+    children: [target.children[0]]
+  };
+
+  const grouped = wrapInGroup(explicitUnary);
+
+  const newChildren = node.children.map((child, childIndex) => {
+    if (childIndex === index) {
+      return grouped;
+    }
+    return child;
+  });
+
+  return {
+    ...node,
+    id: generateId(),
+    children: newChildren
+  };
 }
 
 function pullUnaryMinusFromMultiplication(node: OperatorNode, index: number): ASTNode {
@@ -871,6 +937,43 @@ function getUnaryTarget(node: UnaryNode): ASTNode | null {
   return child;
 }
 
+function getAdditionNode(node: ASTNode): OperatorNode | null {
+  if (node.type === 'operator' && node.value === '+' && node.children.length >= 2) {
+    return node;
+  }
+  if (node.type === 'group' && node.children[0].type === 'operator') {
+    const inner = node.children[0] as OperatorNode;
+    if (inner.value === '+' && inner.children.length >= 2) {
+      return inner;
+    }
+  }
+  return null;
+}
+
+function unwrapGroupNode(node: ASTNode): ASTNode {
+  if (node.type === 'group') {
+    return node.children[0];
+  }
+  return node;
+}
+
+function getExplicitNegativeChild(node: ASTNode): UnaryNode | null {
+  if (node.type === 'unary' && node.value === '-' && !node.implicit) {
+    return node;
+  }
+  if (node.type === 'group' && node.children[0].type === 'unary') {
+    const inner = node.children[0] as UnaryNode;
+    if (inner.value === '-') {
+      return inner;
+    }
+  }
+  return null;
+}
+
+function isImplicitNegativeChild(node: ASTNode): node is UnaryNode {
+  return node.type === 'unary' && node.value === '-' && Boolean(node.implicit);
+}
+
 function isUnaryMinusNode(node: ASTNode): node is UnaryNode {
   return node.type === 'unary' && node.value === '-';
 }
@@ -952,66 +1055,68 @@ function wrapInGroup(node: ASTNode): GroupNode {
   };
 }
 
-type CommonFactorMatch = {
-  leftIndex: number;
-  rightIndex: number;
+type CommonFactorAcross = {
   factor: ASTNode;
   side: 'left' | 'right';
-  ruleId: string;
-  preview: string;
+  remainders: ASTNode[];
 };
 
-function findCommonFactorPairs(node: OperatorNode): CommonFactorMatch[] {
-  const matches: CommonFactorMatch[] = [];
-  for (let i = 0; i < node.children.length - 1; i++) {
-    for (let j = i + 1; j < node.children.length; j++) {
-      const left = node.children[i];
-      const right = node.children[j];
-      if (left.type !== 'operator' || left.value !== '*' || right.type !== 'operator' || right.value !== '*') {
-        continue;
-      }
-      const leftFirst = left.children[0];
-      const rightFirst = right.children[0];
-      if (leftFirst && rightFirst && nodesEqual(leftFirst, rightFirst)) {
-        matches.push({
-          leftIndex: i,
-          rightIndex: j,
-          factor: leftFirst,
-          side: 'left',
-          ruleId: 'factor_common_left',
-          preview: 'a*b + a*c → a*(b+c)'
-        });
-      }
-      const leftLast = left.children[left.children.length - 1];
-      const rightLast = right.children[right.children.length - 1];
-      if (leftLast && rightLast && nodesEqual(leftLast, rightLast)) {
-        matches.push({
-          leftIndex: i,
-          rightIndex: j,
-          factor: leftLast,
-          side: 'right',
-          ruleId: 'factor_common_right',
-          preview: 'b*a + c*a → (b+c)*a'
-        });
-      }
-    }
+function findCommonFactorAcrossSum(node: OperatorNode, side: 'left' | 'right'): CommonFactorAcross | null {
+  if (node.children.length < 2) {
+    return null;
   }
-  return matches;
+
+  const firstTerm = unwrapGroupNode(node.children[0]);
+  const candidate = getFactorCandidate(firstTerm, side);
+  if (!candidate) {
+    return null;
+  }
+
+  const remainders: ASTNode[] = [];
+  for (const term of node.children) {
+    const remainder = extractRemainderForFactor(term, candidate, side);
+    if (!remainder) {
+      return null;
+    }
+    remainders.push(remainder);
+  }
+
+  return {
+    factor: candidate,
+    side,
+    remainders
+  };
 }
 
-function extractRemainderFromTerm(term: ASTNode, factor: ASTNode, side: 'left' | 'right'): ASTNode {
-  if (term.type !== 'operator' || term.value !== '*') {
-    return term;
+function getFactorCandidate(term: ASTNode, side: 'left' | 'right'): ASTNode | null {
+  if (term.type === 'operator' && term.value === '*') {
+    if (side === 'left') {
+      return term.children[0] ?? null;
+    }
+    return term.children[term.children.length - 1] ?? null;
   }
-  const children = [...term.children];
+  return term;
+}
+
+function extractRemainderForFactor(term: ASTNode, factor: ASTNode, side: 'left' | 'right'): ASTNode | null {
+  const unwrapped = unwrapGroupNode(term);
+  if (nodesEqual(unwrapped, factor)) {
+    return createConstantNode(1);
+  }
+
+  if (unwrapped.type !== 'operator' || unwrapped.value !== '*') {
+    return null;
+  }
+
+  const children = [...unwrapped.children];
   if (side === 'left') {
     if (!children[0] || !nodesEqual(children[0], factor)) {
-      return term;
+      return null;
     }
     children.shift();
   } else {
     if (!children[children.length - 1] || !nodesEqual(children[children.length - 1], factor)) {
-      return term;
+      return null;
     }
     children.pop();
   }

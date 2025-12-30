@@ -3,7 +3,7 @@
  * Управляет всеми компонентами и координирует их взаимодействие
  */
 import { ExpressionParser, resetIdCounter } from '../core/parser.js';
-import { expressionToString, replaceNode } from '../utils/helpers.js';
+import { expressionToString, replaceNode, findParentNode, wrapInGroup } from '../utils/helpers.js';
 import { ExpressionDisplay } from './components/ExpressionDisplay.js';
 import { CommandPanel } from './components/CommandPanel.js';
 import { HistoryPanel } from './components/HistoryPanel.js';
@@ -227,11 +227,12 @@ export class ExpressionEditorApp {
           
           console.log('Unpacking transformed children back into parent');
         } else {
+          const adjustedNode = this.wrapSumIfNeeded(parentNode, transformedNode);
           // Заменяем пару одним трансформированным узлом
           // (например, для раскрытия неявного умножения: ab → a*b)
           newChildren = [
             ...parentNode.children.slice(0, pairIndex),
-            transformedNode,
+            adjustedNode,
             ...parentNode.children.slice(pairIndex + 2)
           ];
           
@@ -249,7 +250,9 @@ export class ExpressionEditorApp {
         newRootNode = replaceNode(this.currentNode, parentId, modifiedParent);
       } else {
         // Обычный узел - заменяем напрямую
-        newRootNode = replaceNode(this.currentNode, node.id, transformedNode);
+        const parentNode = findParentNode(this.currentNode, node.id);
+        const adjustedNode = this.wrapSumIfNeeded(parentNode, transformedNode);
+        newRootNode = replaceNode(this.currentNode, node.id, adjustedNode);
       }
       
       const newExpr = expressionToString(newRootNode);
@@ -270,6 +273,30 @@ export class ExpressionEditorApp {
     } catch (error) {
       this.showError('Ошибка преобразования: ' + (error as Error).message);
     }
+  }
+
+  /**
+   * Оборачивает сумму в скобки, если она находится рядом с умножением или делением
+   */
+  private wrapSumIfNeeded(parentNode: ASTNode | null, transformedNode: ASTNode): ASTNode {
+    if (!parentNode) {
+      return transformedNode;
+    }
+
+    if (transformedNode.type === 'group') {
+      return transformedNode;
+    }
+
+    const isSum = transformedNode.type === 'operator' && transformedNode.value === '+';
+    const parentIsMul = parentNode.type === 'operator' && parentNode.value === '*';
+    const parentIsDiv = parentNode.type === 'operator' && parentNode.value === '/';
+    const parentIsImplicitMul = parentNode.type === 'implicit_mul';
+
+    if (isSum && (parentIsMul || parentIsDiv || parentIsImplicitMul)) {
+      return wrapInGroup(transformedNode);
+    }
+
+    return transformedNode;
   }
 
   /**
