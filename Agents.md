@@ -29,7 +29,7 @@
 All tasks MUST follow Quest Mode:
 
 1. Clarification
-2. Specification
+2. Specification (обязательно в репозитории)
 3. Explicit approval
 4. Implementation
 5. Tests and report
@@ -37,6 +37,23 @@ All tasks MUST follow Quest Mode:
 No code before specification approval.
 
 Violation of this process is considered an error.
+
+### Спецификация в Quest Mode
+
+1. Спецификация создаётся и поддерживается **в файле** внутри `specs/`, а не в чате.
+2. **Стандарт именования файла спецификации:**
+   - Формат: `YYYY-MM-DD-<task-slug>.md`
+   - `task-slug` — короткий идентификатор задачи в lowercase с дефисами.
+   - Пример: `2025-12-30-quest-mode-spec-auto-save.md`
+3. Реализация выполняется **только на основе файла спецификации**.
+4. Фиксированный шаблон спецификации (SDD-стиль):
+   - Цель
+   - Контекст
+   - Требования
+   - Ограничения
+   - План изменений
+   - Риски
+   - Критерии приемки
 
 ## Стиль общения
 
