@@ -22,6 +22,8 @@ const RULE_DESCRIPTIONS: Record<string, string> = {
   'assoc_flatten_mul': 'Снимает ассоциативные скобки в умножении, объединяя вложенные произведения.',
   'distribute_unary_minus': 'Распределяет унарный минус по сумме: -(a+b) = -a + -b.',
   'factor_unary_minus': 'Выносит общий минус из суммы: -a + -b = -(a+b).',
+  'factor_common_left_all': 'Выносит общий множитель слева для всей суммы: a*b + a*c + ... = a*(b+c+...).',
+  'factor_common_right_all': 'Выносит общий множитель справа для всей суммы: b*a + c*a + ... = (b+c+...)*a.',
   'div_to_mul_inverse': 'Заменяет деление на умножение на обратное: a/b = a*(1/b).',
   'remove_double_neg_div': 'Убирает двойной минус в дроби: (-a)/(-b) = a/b.',
   'pull_unary_minus_div_left': 'Выносит минус из числителя: (-a)/b = -(a/b).',
@@ -40,8 +42,8 @@ const RULE_DESCRIPTIONS: Record<string, string> = {
 const RULE_DESCRIPTION_PREFIXES: Array<[string, string]> = [
   ['eval_mul_', 'Вычисляет произведение двух числовых констант, заменяя выражение результатом.'],
   ['eval_add_', 'Вычисляет сумму двух числовых констант, заменяя выражение результатом.'],
-  ['factor_common_left_', 'Выносит общий множитель слева: a*b + a*c = a*(b+c).'],
-  ['factor_common_right_', 'Выносит общий множитель справа: b*a + c*a = (b+c)*a.'],
+  ['sum_to_sub_', 'Преобразует сложение с отрицательным слагаемым в вычитание: a + (-b) = a - b.'],
+  ['sub_to_sum_', 'Преобразует вычитание в сложение с отрицательным слагаемым: a - b = a + (-b).'],
   ['pull_unary_minus_mul_', 'Выносит минус из множителя: -a*b = -(a*b).']
 ];
 

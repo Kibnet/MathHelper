@@ -302,6 +302,29 @@ describe('Rules - Transformations (Priority 3)', () => {
     }
   });
 
+  it('should apply distributive for a*(b+c+d)', () => {
+    const parser1 = new ExpressionParser('a');
+    const parser2 = new ExpressionParser('b + c + d');
+    const a = parser1.parse();
+    const sum = parser2.parse();
+
+    const testNode: any = {
+      id: 'test',
+      type: 'operator',
+      value: '*',
+      children: [a, sum]
+    };
+
+    const rules = getApplicableRules(testNode);
+    const distRule = rules.find(r => r.id === 'distributive_forward');
+    expect(distRule).toBeTruthy();
+
+    if (distRule) {
+      const result = distRule.apply(testNode);
+      expect(expressionToString(result)).toBe('a * b + a * c + a * d');
+    }
+  });
+
   it('should flatten nested addition with associativity', () => {
     const parser1 = new ExpressionParser('a + b');
     const parser2 = new ExpressionParser('c');
@@ -352,13 +375,27 @@ describe('Rules - Transformations (Priority 3)', () => {
     const parser = new ExpressionParser('a * b + a * c');
     const node = parser.parse();
     const rules = getApplicableRules(node);
-    
-    const factorRule = rules.find(r => r.id.startsWith('factor_common_left_'));
+
+    const factorRule = rules.find(r => r.id === 'factor_common_left_all');
     expect(factorRule).toBeTruthy();
-    
+
     if (factorRule) {
       const result = factorRule.apply(node);
       expect(expressionToString(result)).toBe('a * (b + c)');
+    }
+  });
+
+  it('should factor out common left factor across three terms', () => {
+    const parser = new ExpressionParser('a * b + a * c + a * d');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+
+    const factorRule = rules.find(r => r.id === 'factor_common_left_all');
+    expect(factorRule).toBeTruthy();
+
+    if (factorRule) {
+      const result = factorRule.apply(node);
+      expect(expressionToString(result)).toBe('a * (b + c + d)');
     }
   });
 
@@ -366,13 +403,55 @@ describe('Rules - Transformations (Priority 3)', () => {
     const parser = new ExpressionParser('b * a + c * a');
     const node = parser.parse();
     const rules = getApplicableRules(node);
-    
-    const factorRule = rules.find(r => r.id.startsWith('factor_common_right_'));
+
+    const factorRule = rules.find(r => r.id === 'factor_common_right_all');
     expect(factorRule).toBeTruthy();
-    
+
     if (factorRule) {
       const result = factorRule.apply(node);
       expect(expressionToString(result)).toBe('(b + c) * a');
+    }
+  });
+
+  it('should factor out common right factor across three terms', () => {
+    const parser = new ExpressionParser('b * a + c * a + d * a');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+
+    const factorRule = rules.find(r => r.id === 'factor_common_right_all');
+    expect(factorRule).toBeTruthy();
+
+    if (factorRule) {
+      const result = factorRule.apply(node);
+      expect(expressionToString(result)).toBe('(b + c + d) * a');
+    }
+  });
+
+  it('should convert a + (-b) into subtraction', () => {
+    const parser = new ExpressionParser('a + (-b)');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+
+    const subRule = rules.find(r => r.id === 'sum_to_sub_1');
+    expect(subRule).toBeTruthy();
+
+    if (subRule) {
+      const result = subRule.apply(node);
+      expect(expressionToString(result)).toBe('a - b');
+    }
+  });
+
+  it('should convert subtraction into a + (-b)', () => {
+    const parser = new ExpressionParser('a - b');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+
+    const sumRule = rules.find(r => r.id === 'sub_to_sum_1');
+    expect(sumRule).toBeTruthy();
+
+    if (sumRule) {
+      const result = sumRule.apply(node);
+      expect(expressionToString(result)).toBe('a + (-b)');
     }
   });
 
