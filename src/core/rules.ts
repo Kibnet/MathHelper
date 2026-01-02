@@ -715,9 +715,15 @@ function factorCommonAcrossSum(node: OperatorNode, match: CommonFactorAcross): A
   void node;
   const sumNode = createAdditionNode(match.remainders);
   const groupedSum = wrapInGroup(sumNode);
-  return match.side === 'right'
-    ? createMultiplicationNode([groupedSum, match.factor])
-    : createMultiplicationNode([match.factor, groupedSum]);
+  const children = match.side === 'right'
+    ? [groupedSum, match.factor]
+    : [match.factor, groupedSum];
+  return {
+    id: generateId(),
+    type: 'operator',
+    value: '*',
+    children
+  };
 }
 
 function distributeUnaryMinusOverSum(node: ASTNode): ASTNode {

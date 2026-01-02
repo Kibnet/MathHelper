@@ -2,9 +2,11 @@
  * Тесты для компонента отображения выражений
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ExpressionDisplay } from '../ui/components/ExpressionDisplay.js';
 import { ExpressionParser } from '../core/parser.js';
+import { ExpressionEditorApp } from '../ui/ExpressionEditorApp.js';
+import { getApplicableRules } from '../core/rules.js';
 
 describe('ExpressionDisplay', () => {
   let container: HTMLElement;
@@ -95,5 +97,55 @@ describe('ExpressionDisplay', () => {
       // Очищаем контейнер для следующей итерации
       container.innerHTML = '';
     }
+  });
+});
+
+describe('ExpressionEditorApp - парные подвыражения', () => {
+  let appRoot: HTMLElement;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+
+    appRoot = document.createElement('div');
+    appRoot.innerHTML = `
+      <input id="expressionInput" />
+      <div id="errorMessage"></div>
+      <div id="expressionContainer"></div>
+      <div id="commandsPanel"></div>
+      <div id="historyPanel"></div>
+      <div id="descriptionPanel"></div>
+      <button id="buildBtn"></button>
+      <button id="clearBtn"></button>
+    `;
+    document.body.appendChild(appRoot);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    if (appRoot && appRoot.parentNode) {
+      appRoot.parentNode.removeChild(appRoot);
+    }
+  });
+
+  it('should keep multiplication when factoring a pair inside a sum', () => {
+    const app = new ExpressionEditorApp();
+    vi.runOnlyPendingTimers();
+
+    const parser = new ExpressionParser('2a + 2a + 7');
+    const root = parser.parse() as any;
+    const pairNode = {
+      ...root,
+      id: `${root.id}_pair_0`,
+      children: [root.children[0], root.children[1]]
+    };
+    const rules = getApplicableRules(pairNode);
+    const factorRule = rules.find(rule => rule.id === 'factor_common_left_all');
+    expect(factorRule).toBeTruthy();
+
+    app['currentNode'] = root;
+    app['expressionInput'].value = '2a + 2a + 7';
+    app['handleCommandClick'](factorRule, pairNode);
+
+    expect(app['expressionInput'].value).toBe('2a * (1 + 1) + 7');
   });
 });

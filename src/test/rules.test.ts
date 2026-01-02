@@ -427,6 +427,41 @@ describe('Rules - Transformations (Priority 3)', () => {
     }
   });
 
+  it('should factor implicit multiplication in sum', () => {
+    const parser = new ExpressionParser('2a + 2a');
+    const node = parser.parse();
+    const rules = getApplicableRules(node);
+
+    const factorRule = rules.find(r => r.id === 'factor_common_left_all');
+    expect(factorRule).toBeTruthy();
+
+    if (factorRule) {
+      const result = factorRule.apply(node);
+      expect(expressionToString(result)).toBe('2a * (1 + 1)');
+    }
+  });
+
+  it('should factor implicit pair inside larger sum', () => {
+    const parser = new ExpressionParser('2a + 2a + 7');
+    const root = parser.parse() as any;
+    const pairNode = {
+      ...root,
+      id: `${root.id}_pair_0`,
+      children: [root.children[0], root.children[1]]
+    };
+    const rules = getApplicableRules(pairNode);
+
+    const factorRule = rules.find(r => r.id === 'factor_common_left_all');
+    expect(factorRule).toBeTruthy();
+
+    if (factorRule) {
+      const transformedNode = factorRule.apply(pairNode);
+      const newChildren = [transformedNode, ...root.children.slice(2)];
+      const newRoot = { ...root, children: newChildren };
+      expect(expressionToString(newRoot)).toBe('2a * (1 + 1) + 7');
+    }
+  });
+
   it('should convert a + (-b) into subtraction', () => {
     const parser = new ExpressionParser('a + (-b)');
     const node = parser.parse();

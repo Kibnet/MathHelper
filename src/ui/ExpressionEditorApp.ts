@@ -23,6 +23,7 @@ export class ExpressionEditorApp {
   
   // Состояние приложения
   private currentNode: ASTNode | null = null;
+  private debug = false;
 
   constructor() {
     // Инициализация DOM элементов
@@ -170,11 +171,18 @@ export class ExpressionEditorApp {
     this.commandPanel.showCommands(node, text, rules);
   }
 
+  private debugLog(...args: unknown[]): void {
+    if (!this.debug) {
+      return;
+    }
+    console.log(...args);
+  }
+
   /**
    * Обработчик клика на команду
    */
   private handleCommandClick(rule: any, node: ASTNode): void {
-    console.log('Applying transformation:', rule.name, 'to node:', node);
+    this.debugLog('Applying transformation:', rule.name, 'to node:', node);
     try {
       if (!this.currentNode) {
         this.showError('Ошибка: нет текущего выражения');
@@ -193,7 +201,7 @@ export class ExpressionEditorApp {
         const parentId = pairMatch[1];
         const pairIndex = parseInt(pairMatch[2]);
         
-        console.log('Detected pair node:', { parentId, pairIndex });
+        this.debugLog('Detected pair node:', { parentId, pairIndex });
         
         // Находим родительский n-арный узел в дереве
         const parentNode = this.findNodeById(this.currentNode, parentId);
@@ -205,8 +213,8 @@ export class ExpressionEditorApp {
           throw new Error('Родительский узел не является оператором');
         }
         
-        console.log('Parent node found:', parentNode);
-        console.log('Transformed pair:', transformedNode);
+        this.debugLog('Parent node found:', parentNode);
+        this.debugLog('Transformed pair:', transformedNode);
         
         // Проверяем, можно ли раскрыть трансформированный узел обратно в пару детей
         // Это возможно если:
@@ -214,7 +222,8 @@ export class ExpressionEditorApp {
         // 2. Трансформация изменила только порядок детей
         const canUnpackChildren = 
           transformedNode.type === node.type && 
-          transformedNode.children.length === 2;
+          transformedNode.children.length === 2 &&
+          (node.type !== 'operator' || transformedNode.value === node.value);
         
         let newChildren: ASTNode[];
         
@@ -225,7 +234,7 @@ export class ExpressionEditorApp {
           newChildren[pairIndex] = transformedNode.children[0]; // Левый элемент пары
           newChildren[pairIndex + 1] = transformedNode.children[1]; // Правый элемент пары
           
-          console.log('Unpacking transformed children back into parent');
+          this.debugLog('Unpacking transformed children back into parent');
         } else {
           const adjustedNode = this.wrapSumIfNeeded(parentNode, transformedNode);
           // Заменяем пару одним трансформированным узлом
@@ -236,7 +245,7 @@ export class ExpressionEditorApp {
             ...parentNode.children.slice(pairIndex + 2)
           ];
           
-          console.log('Replacing pair with single transformed node');
+          this.debugLog('Replacing pair with single transformed node');
         }
         
         const modifiedParent = {
@@ -244,7 +253,7 @@ export class ExpressionEditorApp {
           children: newChildren
         };
         
-        console.log('Modified parent:', modifiedParent);
+        this.debugLog('Modified parent:', modifiedParent);
         
         // Заменяем родительский узел в основном дереве
         newRootNode = replaceNode(this.currentNode, parentId, modifiedParent);
