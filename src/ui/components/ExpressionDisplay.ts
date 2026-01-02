@@ -12,6 +12,7 @@ export interface ExpressionDisplayConfig {
 export class ExpressionDisplay {
   private container: HTMLElement;
   private config: ExpressionDisplayConfig;
+  private debug = false;
 
   constructor(containerId: string, config: ExpressionDisplayConfig = {}) {
     const element = document.getElementById(containerId);
@@ -89,6 +90,13 @@ export class ExpressionDisplay {
     this.container.innerHTML = `<p class="placeholder">${message}</p>`;
   }
 
+  private debugLog(...args: unknown[]): void {
+    if (!this.debug) {
+      return;
+    }
+    console.log(...args);
+  }
+
   /**
    * Создаёт фреймы подвыражений на основе AST дерева
    */
@@ -96,7 +104,7 @@ export class ExpressionDisplay {
     const subexpressions = extractNodesFromAST(rootNode, exprString);
     
     if (subexpressions.length === 0) {
-      console.log('No valid subexpressions found');
+      this.debugLog('No valid subexpressions found');
       return;
     }
 
@@ -233,17 +241,17 @@ export class ExpressionDisplay {
         label.textContent = labelText;
         
         // Позиционируем метку под главным элементом
-        console.log('Calculating label position for:', pos.text, 'tokens:', (pos as any).tokens?.length);
+        this.debugLog('Calculating label position for:', pos.text, 'tokens:', (pos as any).tokens?.length);
         const labelPosition = this.calculateLabelPosition(pos.node, (pos as any).tokens || [], pos.left);
-        console.log('Label position result:', labelPosition);
+        this.debugLog('Label position result:', labelPosition);
         if (labelPosition) {
           label.classList.add('frame-label-left');
           label.style.left = labelPosition.left + 'px';
           // Устанавливаем рассчитанную ширину для правильного выравнивания
           label.style.width = labelPosition.width + 'px';
-          console.log('Applied label styles:', label.style.left, label.style.width);
+          this.debugLog('Applied label styles:', label.style.left, label.style.width);
         } else {
-          console.warn('No label position calculated!');
+          this.debugLog('No label position calculated!');
           // Резервное позиционирование
           label.classList.add('frame-label-center');
         }
@@ -276,7 +284,7 @@ export class ExpressionDisplay {
       rangesContainer.appendChild(frame);
     });
     
-    console.log(`Создано ${positions.length} фреймов на ${levels.length} уровнях`);
+    this.debugLog(`Создано ${positions.length} фреймов на ${levels.length} уровнях`);
   }
 
   /**
@@ -330,16 +338,16 @@ export class ExpressionDisplay {
    */
   private highlightTokens(tokens: Element[], highlight: boolean, node?: ASTNode): void {
     if (!tokens || tokens.length === 0) {
-      console.warn('highlightTokens: no tokens provided');
+      this.debugLog('highlightTokens: no tokens provided');
       return;
     }
     
-    console.log('=== highlightTokens ===' );
-    console.log('  highlight:', highlight);
-    console.log('  node type:', node?.type);
-    console.log('  node tokenIds:', node?.tokenIds);
-    console.log('  tokens count:', tokens.length);
-    console.log('  tokens:', tokens.map((t, i) => `[${i}] ${t.textContent} (data-token-id: ${(t as HTMLElement).dataset.tokenId}, data-original-index: ${(t as HTMLElement).dataset.originalIndex})`));
+    this.debugLog('=== highlightTokens ===' );
+    this.debugLog('  highlight:', highlight);
+    this.debugLog('  node type:', node?.type);
+    this.debugLog('  node tokenIds:', node?.tokenIds);
+    this.debugLog('  tokens count:', tokens.length);
+    this.debugLog('  tokens:', tokens.map((t, i) => `[${i}] ${t.textContent} (data-token-id: ${(t as HTMLElement).dataset.tokenId}, data-original-index: ${(t as HTMLElement).dataset.originalIndex})`));
     
     if (!highlight) {
       // Убираем все классы подсветки
@@ -357,43 +365,43 @@ export class ExpressionDisplay {
       const operandTokenIds = new Set((operandChild.tokenIds || []).filter((id: number) => id !== -1));
       const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
       
-      console.log('  operandChild tokenIds:', Array.from(operandTokenIds));
-      console.log('  allTokenIds:', Array.from(allTokenIds));
+      this.debugLog('  operandChild tokenIds:', Array.from(operandTokenIds));
+      this.debugLog('  allTokenIds:', Array.from(allTokenIds));
       
       // Ищем токен унарного минуса - тот, который есть в узле, но нет в операнде
       const operatorTokenIds = [...allTokenIds].filter((id: number) => !operandTokenIds.has(id));
-      console.log('  operatorTokenIds:', operatorTokenIds);
+      this.debugLog('  operatorTokenIds:', operatorTokenIds);
       
       const operandTokens: Element[] = [];
       let operatorToken: Element | undefined;
       
       tokens.forEach((token) => {
         const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
-        console.log(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
+        this.debugLog(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
         
         if (operandTokenIds.has(originalIndex)) {
           operandTokens.push(token);
-          console.log(`      -> Added to operandTokens`);
+          this.debugLog(`      -> Added to operandTokens`);
         } else if (operatorTokenIds.includes(originalIndex)) {
           operatorToken = token;
-          console.log(`      -> Set as operatorToken`);
+          this.debugLog(`      -> Set as operatorToken`);
         } else {
-          console.log(`      -> Not matched`);
+          this.debugLog(`      -> Not matched`);
         }
       });
       
-      console.log('  Result:');
-      console.log('    operator token:', operatorToken?.textContent);
-      console.log('    operand tokens:', operandTokens.map(t => t.textContent));
+      this.debugLog('  Result:');
+      this.debugLog('    operator token:', operatorToken?.textContent);
+      this.debugLog('    operand tokens:', operandTokens.map(t => t.textContent));
       
       // Применяем классы
       if (operatorToken) {
         operatorToken.classList.add('token-operator-highlight');
-        console.log(`    Applied token-operator-highlight to: ${operatorToken.textContent}`);
+        this.debugLog(`    Applied token-operator-highlight to: ${operatorToken.textContent}`);
       }
       operandTokens.forEach(t => {
         t.classList.add('token-operand-right');
-        console.log(`    Applied token-operand-right to: ${t.textContent}`);
+        this.debugLog(`    Applied token-operand-right to: ${t.textContent}`);
       });
     } 
     // Для групп (скобок) - выделяем скобки как оператор, а выражение внутри как операнд
@@ -404,43 +412,43 @@ export class ExpressionDisplay {
       const operandTokenIds = new Set((operandChild.tokenIds || []).filter((id: number) => id !== -1));
       const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
       
-      console.log('  operandChild tokenIds:', Array.from(operandTokenIds));
-      console.log('  allTokenIds:', Array.from(allTokenIds));
+      this.debugLog('  operandChild tokenIds:', Array.from(operandTokenIds));
+      this.debugLog('  allTokenIds:', Array.from(allTokenIds));
       
       // Ищем токены скобок - те, которые есть в узле, но нет в операнде
       const bracketTokenIds = [...allTokenIds].filter((id: number) => !operandTokenIds.has(id));
-      console.log('  bracketTokenIds:', bracketTokenIds);
+      this.debugLog('  bracketTokenIds:', bracketTokenIds);
       
       const operandTokens: Element[] = [];
       const bracketTokens: Element[] = [];
       
       tokens.forEach((token) => {
         const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
-        console.log(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
+        this.debugLog(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
         
         if (operandTokenIds.has(originalIndex)) {
           operandTokens.push(token);
-          console.log(`      -> Added to operandTokens`);
+          this.debugLog(`      -> Added to operandTokens`);
         } else if (bracketTokenIds.includes(originalIndex)) {
           bracketTokens.push(token);
-          console.log(`      -> Added to bracketTokens`);
+          this.debugLog(`      -> Added to bracketTokens`);
         } else {
-          console.log(`      -> Not matched`);
+          this.debugLog(`      -> Not matched`);
         }
       });
       
-      console.log('  Result:');
-      console.log('    bracket tokens:', bracketTokens.map(t => t.textContent));
-      console.log('    operand tokens:', operandTokens.map(t => t.textContent));
+      this.debugLog('  Result:');
+      this.debugLog('    bracket tokens:', bracketTokens.map(t => t.textContent));
+      this.debugLog('    operand tokens:', operandTokens.map(t => t.textContent));
       
       // Применяем классы - скобки как оператор, содержимое как операнд
       bracketTokens.forEach(t => {
         t.classList.add('token-operator-highlight');
-        console.log(`    Applied token-operator-highlight to: ${t.textContent}`);
+        this.debugLog(`    Applied token-operator-highlight to: ${t.textContent}`);
       });
       operandTokens.forEach(t => {
         t.classList.add('token-operand-right');
-        console.log(`    Applied token-operand-right to: ${t.textContent}`);
+        this.debugLog(`    Applied token-operand-right to: ${t.textContent}`);
       });
     }
     // Для операторов и неявного умножения - выделяем оператор и операнды
@@ -461,46 +469,46 @@ export class ExpressionDisplay {
         
         const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
         
-        console.log('  operandTokenIdSets:', operandTokenIdSets.map(set => Array.from(set)));
-        console.log('  allOperandTokenIds:', Array.from(allOperandTokenIds));
-        console.log('  allTokenIds:', Array.from(allTokenIds));
+        this.debugLog('  operandTokenIdSets:', operandTokenIdSets.map(set => Array.from(set)));
+        this.debugLog('  allOperandTokenIds:', Array.from(allOperandTokenIds));
+        this.debugLog('  allTokenIds:', Array.from(allTokenIds));
         
         // Ищем токены операторов - те, которые есть в узле, но нет в операндах
         const operatorTokenIds = [...allTokenIds].filter((id: number) => !allOperandTokenIds.has(id));
-        console.log('  operatorTokenIds:', operatorTokenIds);
+        this.debugLog('  operatorTokenIds:', operatorTokenIds);
         
         const operandTokensArrays: Element[][] = children.map(() => [] as Element[]);
         const operatorTokens: Element[] = [];
         
         tokens.forEach((token) => {
           const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
-          console.log(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
+          this.debugLog(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
           
           // Проверяем, является ли токен оператором
           if (operatorTokenIds.includes(originalIndex)) {
             operatorTokens.push(token);
-            console.log(`      -> Added to operatorTokens`);
+            this.debugLog(`      -> Added to operatorTokens`);
           } else {
             // Проверяем, к какому операнду относится токен
             operandTokenIdSets.forEach((operandTokenIds, operandIndex) => {
               if (operandTokenIds.has(originalIndex)) {
                 operandTokensArrays[operandIndex].push(token);
-                console.log(`      -> Added to operandTokens[${operandIndex}]`);
+                this.debugLog(`      -> Added to operandTokens[${operandIndex}]`);
               }
             });
           }
         });
         
-        console.log('  Result:');
-        console.log('    operator tokens:', operatorTokens.map(t => t.textContent));
+        this.debugLog('  Result:');
+        this.debugLog('    operator tokens:', operatorTokens.map(t => t.textContent));
         operandTokensArrays.forEach((operandTokens, i) => {
-          console.log(`    operand[${i}] tokens:`, operandTokens.map(t => t.textContent));
+          this.debugLog(`    operand[${i}] tokens:`, operandTokens.map(t => t.textContent));
         });
         
         // Применяем классы - все операторы выделяем зеленой рамкой
         operatorTokens.forEach(token => {
           token.classList.add('token-operator-highlight');
-          console.log(`    Applied token-operator-highlight to: ${token.textContent}`);
+          this.debugLog(`    Applied token-operator-highlight to: ${token.textContent}`);
         });
         
         // Поочередно подсвечиваем операнды (чередующиеся цвета)
@@ -508,7 +516,7 @@ export class ExpressionDisplay {
           const highlightClass = i % 2 === 0 ? 'token-operand-left' : 'token-operand-right';
           operandTokens.forEach(t => {
             t.classList.add(highlightClass);
-            console.log(`    Applied ${highlightClass} to: ${t.textContent}`);
+            this.debugLog(`    Applied ${highlightClass} to: ${t.textContent}`);
           });
         });
       } else {
@@ -520,13 +528,13 @@ export class ExpressionDisplay {
         const rightTokenIds = new Set((rightChild.tokenIds || []).filter((id: number) => id !== -1));
         const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
         
-        console.log('  leftChild tokenIds:', Array.from(leftTokenIds));
-        console.log('  rightChild tokenIds:', Array.from(rightTokenIds));
-        console.log('  allTokenIds:', Array.from(allTokenIds));
+        this.debugLog('  leftChild tokenIds:', Array.from(leftTokenIds));
+        this.debugLog('  rightChild tokenIds:', Array.from(rightTokenIds));
+        this.debugLog('  allTokenIds:', Array.from(allTokenIds));
         
         // Ищем токен оператора - тот, который есть в узле, но нет ни в левом, ни в правом дочернем узле
         const operatorTokenIds = [...allTokenIds].filter((id: number) => !leftTokenIds.has(id) && !rightTokenIds.has(id));
-        console.log('  operatorTokenIds:', operatorTokenIds);
+        this.debugLog('  operatorTokenIds:', operatorTokenIds);
         
         const leftTokens: Element[] = [];
         const rightTokens: Element[] = [];
@@ -534,47 +542,47 @@ export class ExpressionDisplay {
         
         tokens.forEach((token) => {
           const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
-          console.log(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
+          this.debugLog(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
           
           if (leftTokenIds.has(originalIndex)) {
             leftTokens.push(token);
-            console.log(`      -> Added to leftTokens`);
+            this.debugLog(`      -> Added to leftTokens`);
           } else if (rightTokenIds.has(originalIndex)) {
             rightTokens.push(token);
-            console.log(`      -> Added to rightTokens`);
+            this.debugLog(`      -> Added to rightTokens`);
           } else if (operatorTokenIds.includes(originalIndex)) {
             operatorToken = token;
-            console.log(`      -> Set as operatorToken`);
+            this.debugLog(`      -> Set as operatorToken`);
           } else {
-            console.log(`      -> Not matched`);
+            this.debugLog(`      -> Not matched`);
           }
         });
         
-        console.log('  Result:');
-        console.log('    operator token:', operatorToken?.textContent);
-        console.log('    left tokens:', leftTokens.map(t => t.textContent));
-        console.log('    right tokens:', rightTokens.map(t => t.textContent));
+        this.debugLog('  Result:');
+        this.debugLog('    operator token:', operatorToken?.textContent);
+        this.debugLog('    left tokens:', leftTokens.map(t => t.textContent));
+        this.debugLog('    right tokens:', rightTokens.map(t => t.textContent));
         
         // Применяем классы
         if (operatorToken) {
           operatorToken.classList.add('token-operator-highlight');
-          console.log(`    Applied token-operator-highlight to: ${operatorToken.textContent}`);
+          this.debugLog(`    Applied token-operator-highlight to: ${operatorToken.textContent}`);
         }
         leftTokens.forEach(t => {
           t.classList.add('token-operand-left');
-          console.log(`    Applied token-operand-left to: ${t.textContent}`);
+          this.debugLog(`    Applied token-operand-left to: ${t.textContent}`);
         });
         rightTokens.forEach(t => {
           t.classList.add('token-operand-right');
-          console.log(`    Applied token-operand-right to: ${t.textContent}`);
+          this.debugLog(`    Applied token-operand-right to: ${t.textContent}`);
         });
       }
     } else {
       // Для остальных типов - просто подсвечиваем
-      console.log('  Applying simple hover highlight');
+      this.debugLog('  Applying simple hover highlight');
       tokens.forEach(token => {
         token.classList.add('token-hover');
-        console.log(`    Applied token-hover to: ${token.textContent}`);
+        this.debugLog(`    Applied token-hover to: ${token.textContent}`);
       });
     }
   }
@@ -630,7 +638,7 @@ export class ExpressionDisplay {
   private calculateLabelPosition(node: ASTNode, tokens: Element[], frameLeft: number): { left: number; width: number } | null {
     if (tokens.length === 0) return null;
 
-    console.log('calculateLabelPosition:', node.type, node.value, 'tokens:', tokens.map(t => t.textContent));
+    this.debugLog('calculateLabelPosition:', node.type, node.value, 'tokens:', tokens.map(t => t.textContent));
 
     switch (node.type) {
       case 'operator': {
@@ -643,7 +651,7 @@ export class ExpressionDisplay {
             return text.startsWith(node.value);
           }).map(t => t as HTMLElement);
           
-          console.log('Looking for n-ary operators:', node.value, 'found:', operatorTokens.map(t => t.textContent));
+          this.debugLog('Looking for n-ary operators:', node.value, 'found:', operatorTokens.map(t => t.textContent));
           
           if (operatorTokens.length > 0) {
             // Для точного выравнивания каждого символа в метке с каждым оператором в выражении
@@ -671,7 +679,7 @@ export class ExpressionDisplay {
             // Ищем оператор в начале текста (до возможного суффикса типа "Оператор")
             return text.startsWith(node.value);
           });
-          console.log('Looking for operator:', node.value, 'found:', operatorToken?.textContent);
+          this.debugLog('Looking for operator:', node.value, 'found:', operatorToken?.textContent);
           if (operatorToken) {
             const htmlToken = operatorToken as HTMLElement;
             return {
@@ -743,7 +751,7 @@ export class ExpressionDisplay {
         const openBracket = tokens.find(t => (t.textContent || '').startsWith('('));
         const closeBracket = tokens.reverse().find(t => (t.textContent || '').startsWith(')'));
         tokens.reverse(); // Возвращаем порядок
-        console.log('Looking for brackets, open:', openBracket?.textContent, 'close:', closeBracket?.textContent);
+        this.debugLog('Looking for brackets, open:', openBracket?.textContent, 'close:', closeBracket?.textContent);
         if (openBracket && closeBracket) {
           const openEl = openBracket as HTMLElement;
           const closeEl = closeBracket as HTMLElement;
@@ -758,7 +766,7 @@ export class ExpressionDisplay {
       case 'unary': {
         // Под унарным минусом (ищем по содержимому, игнорируя суффиксы)
         const minusToken = tokens.find(t => (t.textContent || '').startsWith('-'));
-        console.log('Looking for unary minus, found:', minusToken?.textContent);
+        this.debugLog('Looking for unary minus, found:', minusToken?.textContent);
         if (minusToken) {
           const htmlToken = minusToken as HTMLElement;
           return {
@@ -781,7 +789,7 @@ export class ExpressionDisplay {
       }
     }
 
-    console.warn('No matching case for node type:', node.type);
+    this.debugLog('No matching case for node type:', node.type);
     return null;
   }
 }
