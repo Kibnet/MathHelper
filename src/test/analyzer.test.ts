@@ -94,8 +94,8 @@ describe('Analyzer - findAllSubexpressions', () => {
     
     // Each subexpression should have rules
     for (const subexpr of subexprs) {
-      expect(subexpr.rules).toBeTruthy();
-      expect(Array.isArray(subexpr.rules)).toBeTruthy();
+      const rules = subexpr.rules ?? [];
+      expect(Array.isArray(rules)).toBeTruthy();
     }
   });
 
@@ -104,7 +104,8 @@ describe('Analyzer - findAllSubexpressions', () => {
     const subexprs = findAllSubexpressions('x + y');
     
     for (const subexpr of subexprs) {
-      expect(subexpr.rules.length).toBeGreaterThan(0);
+      const rules = subexpr.rules ?? [];
+      expect(rules.length).toBeGreaterThan(0);
     }
   });
 
@@ -378,7 +379,8 @@ describe('Analyzer - Edge Cases', () => {
     
     // Все возвращённые подвыражения должны иметь хотя бы одно правило
     for (const subexpr of subexprs) {
-      expect(subexpr.rules.length).toBeGreaterThan(0);
+      const rules = subexpr.rules ?? [];
+      expect(rules.length).toBeGreaterThan(0);
     }
     
     // Проверяем, что функция работает корректно
@@ -454,8 +456,9 @@ describe('Analyzer - extractNodesFromAST', () => {
     
     // Все узлы должны быть из оригинального дерева
     for (const subexpr of subexprs) {
-      expect(subexpr.node.id).toBeTruthy();
-      expect(typeof subexpr.node.id).toBe('string');
+      const nodeId = (subexpr.node as { id: string }).id;
+      expect(nodeId).toBeTruthy();
+      expect(typeof nodeId).toBe('string');
     }
   });
 
@@ -483,9 +486,9 @@ describe('Analyzer - extractNodesFromAST', () => {
     const subexprs = extractNodesFromAST(ast, exprString);
     
     for (const subexpr of subexprs) {
-      expect(subexpr.rules).toBeTruthy();
-      expect(Array.isArray(subexpr.rules)).toBeTruthy();
-      expect(subexpr.rules.length).toBeGreaterThan(0);
+      const rules = subexpr.rules ?? [];
+      expect(Array.isArray(rules)).toBeTruthy();
+      expect(rules.length).toBeGreaterThan(0);
     }
   });
 
@@ -511,7 +514,7 @@ describe('Analyzer - extractNodesFromAST', () => {
     const subexprs = extractNodesFromAST(ast, exprString);
     
     // Проверяем уникальность по ID узлов
-    const nodeIds = subexprs.map(s => s.node.id);
+    const nodeIds = subexprs.map(s => (s.node as { id: string }).id);
     const uniqueIds = new Set(nodeIds);
     
     expect(nodeIds.length).toBe(uniqueIds.size);

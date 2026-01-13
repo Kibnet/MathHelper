@@ -2,13 +2,12 @@
  * Главное приложение редактора выражений
  * Управляет всеми компонентами и координирует их взаимодействие
  */
-import { ExpressionParser, resetIdCounter } from '../core/parser.js';
-import { expressionToString, replaceNode, findParentNode, wrapInGroup } from '../utils/helpers.js';
+import { MathStepsEngine } from '../core/mathsteps-engine.js';
 import { ExpressionDisplay } from './components/ExpressionDisplay.js';
 import { CommandPanel } from './components/CommandPanel.js';
 import { HistoryPanel } from './components/HistoryPanel.js';
 import { DescriptionPanel } from './components/DescriptionPanel.js';
-import type { ASTNode } from '../types/index.js';
+import type { FrameSelection, MathStepsOperation } from '../types/index.js';
 
 export class ExpressionEditorApp {
   // UI компоненты
@@ -22,7 +21,8 @@ export class ExpressionEditorApp {
   private errorMessage: HTMLElement;
   
   // Состояние приложения
-  private currentNode: ASTNode | null = null;
+  private currentExpression = '';
+  private mathStepsEngine: MathStepsEngine;
   private debug = false;
 
   constructor() {
@@ -32,11 +32,11 @@ export class ExpressionEditorApp {
     
     // Инициализация компонентов
     this.expressionDisplay = new ExpressionDisplay('expressionContainer', {
-      onFrameClick: (node, text, rules) => this.handleFrameClick(node, text, rules)
+      onFrameClick: (selection) => this.handleFrameClick(selection)
     });
     
     this.commandPanel = new CommandPanel('commandsPanel', {
-      onCommandClick: (rule, node) => this.handleCommandClick(rule, node)
+      onCommandClick: (operation) => this.handleCommandClick(operation)
     });
     
     this.historyPanel = new HistoryPanel('historyPanel', {
@@ -45,6 +45,8 @@ export class ExpressionEditorApp {
     
     this.descriptionPanel = new DescriptionPanel('descriptionPanel');
     
+    this.mathStepsEngine = new MathStepsEngine();
+
     // Настройка обработчиков событий
     this.setupEventHandlers();
     
@@ -128,18 +130,15 @@ export class ExpressionEditorApp {
     }
 
     try {
-      resetIdCounter();
-      const parser = new ExpressionParser(input);
-      const ast = parser.parse();
-      this.currentNode = ast;
-      
-      const exprString = expressionToString(ast);
+      const node = this.mathStepsEngine.parse(input);
+      const exprString = this.mathStepsEngine.stringify(node);
+      this.currentExpression = exprString;
       
       // Добавляем в историю
-      this.historyPanel.addState(exprString, 'Исходное выражение', ast);
+      this.historyPanel.addState(exprString, 'Исходное выражение', node);
       
       // Отображаем выражение с AST деревом
-      this.expressionDisplay.render(exprString, ast);
+      this.expressionDisplay.render(exprString, node);
       this.hideError();
     } catch (error) {
       this.showError((error as Error).message);
@@ -161,14 +160,20 @@ export class ExpressionEditorApp {
     this.historyPanel.clear();
     this.descriptionPanel.clear();
     this.hideError();
-    this.currentNode = null;
+    this.currentExpression = '';
   }
 
   /**
    * Обработчик клика на фрейм
    */
-  private handleFrameClick(node: ASTNode, text: string, rules: any[]): void {
-    this.commandPanel.showCommands(node, text, rules);
+  private handleFrameClick(selection: FrameSelection): void {
+    if (!this.currentExpression) {
+      this.showError('Ошибка: нет текущего выражения');
+      return;
+    }
+
+    const operations = this.mathStepsEngine.listOps(this.currentExpression, selection.path);
+    this.commandPanel.showCommands(selection, operations);
   }
 
   private debugLog(...args: unknown[]): void {
@@ -181,149 +186,27 @@ export class ExpressionEditorApp {
   /**
    * Обработчик клика на команду
    */
-  private handleCommandClick(rule: any, node: ASTNode): void {
-    this.debugLog('Applying transformation:', rule.name, 'to node:', node);
+  private handleCommandClick(operation: MathStepsOperation): void {
+    this.debugLog('Applying transformation:', operation.name, 'to path:', operation.selectionPath);
     try {
-      if (!this.currentNode) {
+      if (!this.currentExpression) {
         this.showError('Ошибка: нет текущего выражения');
         return;
       }
-      
-      // Применяем преобразование к выбранному узлу
-      const transformedNode = rule.apply(node);
-      
-      let newRootNode: ASTNode;
-      
-      // Проверяем, является ли узел виртуальным парным узлом из n-арной операции
-      const pairMatch = node.id.match(/^(.+)_pair_(\d+)$/);
-      if (pairMatch) {
-        // Это виртуальный парный узел
-        const parentId = pairMatch[1];
-        const pairIndex = parseInt(pairMatch[2]);
-        
-        this.debugLog('Detected pair node:', { parentId, pairIndex });
-        
-        // Находим родительский n-арный узел в дереве
-        const parentNode = this.findNodeById(this.currentNode, parentId);
-        if (!parentNode) {
-          throw new Error('Родительский узел не найден');
-        }
-        
-        if (parentNode.type !== 'operator' && parentNode.type !== 'implicit_mul') {
-          throw new Error('Родительский узел не является оператором');
-        }
-        
-        this.debugLog('Parent node found:', parentNode);
-        this.debugLog('Transformed pair:', transformedNode);
-        
-        // Проверяем, можно ли раскрыть трансформированный узел обратно в пару детей
-        // Это возможно если:
-        // 1. Трансформация сохранила тип узла (например, коммутативность)
-        // 2. Трансформация изменила только порядок детей
-        const canUnpackChildren = 
-          transformedNode.type === node.type && 
-          transformedNode.children.length === 2 &&
-          (node.type !== 'operator' || transformedNode.value === node.value);
-        
-        let newChildren: ASTNode[];
-        
-        if (canUnpackChildren) {
-          // Раскладываем трансформированный узел на двух детей
-          // (например, для коммутативности: a+b → b+a)
-          newChildren = [...parentNode.children];
-          newChildren[pairIndex] = transformedNode.children[0]; // Левый элемент пары
-          newChildren[pairIndex + 1] = transformedNode.children[1]; // Правый элемент пары
-          
-          this.debugLog('Unpacking transformed children back into parent');
-        } else {
-          const adjustedNode = this.wrapSumIfNeeded(parentNode, transformedNode);
-          // Заменяем пару одним трансформированным узлом
-          // (например, для раскрытия неявного умножения: ab → a*b)
-          newChildren = [
-            ...parentNode.children.slice(0, pairIndex),
-            adjustedNode,
-            ...parentNode.children.slice(pairIndex + 2)
-          ];
-          
-          this.debugLog('Replacing pair with single transformed node');
-        }
-        
-        const modifiedParent = {
-          ...parentNode,
-          children: newChildren
-        };
-        
-        this.debugLog('Modified parent:', modifiedParent);
-        
-        // Заменяем родительский узел в основном дереве
-        newRootNode = replaceNode(this.currentNode, parentId, modifiedParent);
-      } else {
-        // Обычный узел - заменяем напрямую
-        const parentNode = findParentNode(this.currentNode, node.id);
-        const adjustedNode = this.wrapSumIfNeeded(parentNode, transformedNode);
-        newRootNode = replaceNode(this.currentNode, node.id, adjustedNode);
-      }
-      
-      const newExpr = expressionToString(newRootNode);
-      
-      // Показываем описание
-      this.descriptionPanel.showRule(rule);
-      
-      // Добавляем в историю
-      this.historyPanel.addState(newExpr, rule.name, newRootNode);
-      
-      // ИСПРАВЛЕНИЕ БАГ 5: Производим полную пересборку вместо ручной модификации фреймов
-      // Это гарантирует что фреймы после трансформации идентичны фреймам после нажатия "Построить"
+
+      const result = this.mathStepsEngine.apply(this.currentExpression, operation.selectionPath, operation.id);
+      const newExpr = this.mathStepsEngine.stringify(result.newNode);
+      this.currentExpression = newExpr;
+
+      this.descriptionPanel.showRule(operation);
+      this.historyPanel.addState(newExpr, operation.name, result.newNode);
+
       this.expressionInput.value = newExpr;
-      this.buildExpression();
-      
-      // Очищаем панель команд
+      this.expressionDisplay.render(newExpr, result.newNode);
       this.commandPanel.clear();
     } catch (error) {
       this.showError('Ошибка преобразования: ' + (error as Error).message);
     }
-  }
-
-  /**
-   * Оборачивает сумму в скобки, если она находится рядом с умножением или делением
-   */
-  private wrapSumIfNeeded(parentNode: ASTNode | null, transformedNode: ASTNode): ASTNode {
-    if (!parentNode) {
-      return transformedNode;
-    }
-
-    if (transformedNode.type === 'group') {
-      return transformedNode;
-    }
-
-    const isSum = transformedNode.type === 'operator' && transformedNode.value === '+';
-    const parentIsMul = parentNode.type === 'operator' && parentNode.value === '*';
-    const parentIsDiv = parentNode.type === 'operator' && parentNode.value === '/';
-    const parentIsImplicitMul = parentNode.type === 'implicit_mul';
-
-    if (isSum && (parentIsMul || parentIsDiv || parentIsImplicitMul)) {
-      return wrapInGroup(transformedNode);
-    }
-
-    return transformedNode;
-  }
-
-  /**
-   * Поиск узла по ID в дереве (вспомогательный метод)
-   */
-  private findNodeById(root: ASTNode, id: string): ASTNode | null {
-    if (root.id === id) {
-      return root;
-    }
-    
-    if ('children' in root && root.children) {
-      for (const child of root.children) {
-        const found = this.findNodeById(child, id);
-        if (found) return found;
-      }
-    }
-    
-    return null;
   }
 
   /**
@@ -335,7 +218,7 @@ export class ExpressionEditorApp {
     
     this.historyPanel.setCurrentIndex(index);
     this.expressionInput.value = state.expression;
-    this.currentNode = state.node;
+    this.currentExpression = state.expression;
     
     this.expressionDisplay.render(state.expression, state.node);
   }

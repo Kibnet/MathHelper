@@ -3,7 +3,7 @@
  * Находит все валидные подвыражения и определяет расположение фреймов
  */
 
-import type { Subexpression, SubexpressionPosition, LayoutConfig, ASTNode } from '../types/index.js';
+import type { Subexpression, SubexpressionPosition, LayoutConfig, ASTNode, MathStepsNode, MathStepsPath } from '../types/index.js';
 import { ExpressionParser } from './parser.js';
 import { getApplicableRules } from './rules.js';
 import { expressionToString } from '../utils/helpers.js';
@@ -115,13 +115,69 @@ export function extractNodesFromAST(rootNode: ASTNode, fullExpressionString: str
   const seenIds = new Set<string>();
   
   for (const subexpr of subexpressions) {
-    if (!seenIds.has(subexpr.node.id)) {
-      seenIds.add(subexpr.node.id);
+    const nodeId = (subexpr.node as ASTNode).id;
+    if (!seenIds.has(nodeId)) {
+      seenIds.add(nodeId);
       uniqueSubexpressions.push(subexpr);
     }
   }
   
   return uniqueSubexpressions;
+}
+
+/**
+ * Извлечь все узлы из mathjs AST дерева с их текстовыми позициями
+ */
+export function extractNodesFromMathStepsAst(rootNode: MathStepsNode, fullExpressionString: string): Subexpression[] {
+  const subexpressions: Subexpression[] = [];
+  const nodeTextMap = new Map<MathStepsNode, string>();
+
+  function buildNodeTextMap(node: MathStepsNode): void {
+    const text = node.toString();
+    nodeTextMap.set(node, text);
+
+    if (node.content) {
+      buildNodeTextMap(node.content);
+    }
+
+    if (node.args && node.args.length > 0) {
+      node.args.forEach(child => buildNodeTextMap(child));
+    }
+  }
+
+  buildNodeTextMap(rootNode);
+
+  function findNodePositions(node: MathStepsNode, path: MathStepsPath, currentPos: number = 0): void {
+    const nodeText = nodeTextMap.get(node) || '';
+    const index = fullExpressionString.indexOf(nodeText, currentPos);
+
+    if (index !== -1) {
+      subexpressions.push({
+        text: nodeText,
+        start: index,
+        end: index + nodeText.length,
+        node: node,
+        length: nodeText.length,
+        path
+      });
+    }
+
+    const nextPos = index !== -1 ? index : currentPos;
+
+    if (node.content) {
+      findNodePositions(node.content, [...path, 'content'], nextPos);
+    }
+
+    if (node.args && node.args.length > 0) {
+      node.args.forEach((child, index) => {
+        findNodePositions(child, [...path, 'args', index], nextPos);
+      });
+    }
+  }
+
+  findNodePositions(rootNode, []);
+
+  return subexpressions;
 }
 
 /**

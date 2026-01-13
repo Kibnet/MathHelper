@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ExpressionDisplay } from '../ui/components/ExpressionDisplay.js';
-import { ExpressionParser } from '../core/parser.js';
+import { MathStepsEngine } from '../core/mathsteps-engine.js';
 
 describe('Unary Minus and Parentheses Highlighting', () => {
   let container: HTMLElement;
@@ -25,14 +25,15 @@ describe('Unary Minus and Parentheses Highlighting', () => {
 
   it('should highlight unary minus correctly', () => {
     // Создаём тестовое выражение с унарным минусом
-    const parser = new ExpressionParser('-5');
-    const ast = parser.parse();
+    const engine = new MathStepsEngine();
+    const ast = engine.parse('-5');
+    const exprString = engine.stringify(ast);
     
     // Создаём компонент отображения
     const display = new ExpressionDisplay('test-container');
     
     // Рендерим выражение
-    display.render('-5', ast);
+    display.render(exprString, ast);
     
     // Проверяем, что контейнер создан
     const textContainer = document.querySelector('.expression-text');
@@ -45,30 +46,31 @@ describe('Unary Minus and Parentheses Highlighting', () => {
     // Вручную вызываем highlightTokens для унарного минуса
     // Находим токены
     const tokenArray = Array.from(tokens);
-    display['highlightTokens'](tokenArray, true, ast);
+    display['highlightTokens'](tokenArray, true);
     
     // Проверяем, что токен унарного минуса имеет правильный класс
     // Ищем токен по содержанию первого символа
     const minusToken = tokenArray.find(t => (t.textContent || '').includes('-'));
     expect(minusToken).toBeTruthy();
-    expect(minusToken!.classList.contains('token-operator-highlight')).toBe(true);
+    expect(minusToken!.classList.contains('token-hover')).toBe(true);
     
     // Проверяем, что токен числа имеет правильный класс
     const numberToken = tokenArray.find(t => (t.textContent || '').includes('5'));
     expect(numberToken).toBeTruthy();
-    expect(numberToken!.classList.contains('token-operand-right')).toBe(true);
+    expect(numberToken!.classList.contains('token-hover')).toBe(true);
   });
 
   it('should highlight parentheses correctly', () => {
     // Создаём тестовое выражение со скобками
-    const parser = new ExpressionParser('(5)');
-    const ast = parser.parse();
+    const engine = new MathStepsEngine();
+    const ast = engine.parse('(5)');
+    const exprString = engine.stringify(ast);
     
     // Создаём компонент отображения
     const display = new ExpressionDisplay('test-container');
     
     // Рендерим выражение
-    display.render('(5)', ast);
+    display.render(exprString, ast);
     
     // Проверяем, что контейнер создан
     const textContainer = document.querySelector('.expression-text');
@@ -80,32 +82,33 @@ describe('Unary Minus and Parentheses Highlighting', () => {
     
     // Вручную вызываем highlightTokens для группы
     const tokenArray = Array.from(tokens);
-    display['highlightTokens'](tokenArray, true, ast);
+    display['highlightTokens'](tokenArray, true);
     
     // Проверяем, что токены скобок имеют правильный класс
     const openParenToken = tokenArray.find(t => (t.textContent || '').includes('('));
     const closeParenToken = tokenArray.find(t => (t.textContent || '').includes(')'));
     expect(openParenToken).toBeTruthy();
     expect(closeParenToken).toBeTruthy();
-    expect(openParenToken!.classList.contains('token-operator-highlight')).toBe(true);
-    expect(closeParenToken!.classList.contains('token-operator-highlight')).toBe(true);
+    expect(openParenToken!.classList.contains('token-hover')).toBe(true);
+    expect(closeParenToken!.classList.contains('token-hover')).toBe(true);
     
     // Проверяем, что токен числа имеет правильный класс
     const numberToken = tokenArray.find(t => (t.textContent || '').includes('5'));
     expect(numberToken).toBeTruthy();
-    expect(numberToken!.classList.contains('token-operand-right')).toBe(true);
+    expect(numberToken!.classList.contains('token-hover')).toBe(true);
   });
 
   it('should highlight complex unary minus expression', () => {
     // Создаём тестовое выражение с унарным минусом и сложным выражением
-    const parser = new ExpressionParser('-(5 + 3)');
-    const ast = parser.parse();
+    const engine = new MathStepsEngine();
+    const ast = engine.parse('-(5 + 3)');
+    const exprString = engine.stringify(ast);
     
     // Создаём компонент отображения
     const display = new ExpressionDisplay('test-container');
     
     // Рендерим выражение
-    display.render('-(5 + 3)', ast);
+    display.render(exprString, ast);
     
     // Проверяем, что контейнер создан
     const textContainer = document.querySelector('.expression-text');
@@ -116,12 +119,12 @@ describe('Unary Minus and Parentheses Highlighting', () => {
     const tokenArray = Array.from(tokens);
     
     // Вручную вызываем highlightTokens для унарного минуса
-    display['highlightTokens'](tokenArray, true, ast);
+    display['highlightTokens'](tokenArray, true);
     
     // Проверяем, что токен унарного минуса имеет правильный класс
     const minusToken = tokenArray.find(t => (t.textContent || '').includes('-'));
     expect(minusToken).toBeTruthy();
-    expect(minusToken!.classList.contains('token-operator-highlight')).toBe(true);
+    expect(minusToken!.classList.contains('token-hover')).toBe(true);
     
     // Проверяем, что токены внутри скобок имеют правильный класс
     // Для групп (скобок) внутренние токены подсвечиваются как операнды
@@ -131,34 +134,33 @@ describe('Unary Minus and Parentheses Highlighting', () => {
     });
     expect(innerTokens.length).toBeGreaterThanOrEqual(3);
     innerTokens.forEach(token => {
-      // Внутренние токены группы получают класс token-operand-right
-      expect(token.classList.contains('token-operand-right')).toBe(true);
+      expect(token.classList.contains('token-hover')).toBe(true);
     });
   });
 
-  // Новый тест для проверки наличия зелёной рамки у token-operator-highlight
-  it('should apply green border to token-operator-highlight elements', () => {
+  // Проверка, что токен подсвечивается через token-hover
+  it('should apply hover class to highlighted tokens', () => {
     // Создаём тестовое выражение с унарным минусом
-    const parser = new ExpressionParser('-5');
-    const ast = parser.parse();
+    const engine = new MathStepsEngine();
+    const ast = engine.parse('-5');
+    const exprString = engine.stringify(ast);
     
     // Создаём компонент отображения
     const display = new ExpressionDisplay('test-container');
     
     // Рендерим выражение
-    display.render('-5', ast);
+    display.render(exprString, ast);
     
     // Вручную вызываем highlightTokens для унарного минуса
     const tokens = document.querySelectorAll('.token');
     const tokenArray = Array.from(tokens);
-    display['highlightTokens'](tokenArray, true, ast);
+    display['highlightTokens'](tokenArray, true);
     
     // Проверяем, что токен унарного минуса имеет правильный класс
     const minusToken = tokenArray.find(t => (t.textContent || '').includes('-'));
     expect(minusToken).toBeTruthy();
-    expect(minusToken!.classList.contains('token-operator-highlight')).toBe(true);
+    expect(minusToken!.classList.contains('token-hover')).toBe(true);
     
-    // Проверяем, что класс token-operator-highlight существует в CSS
-    // и должен применять зелёную рамку (реальная проверка визуально)
+    // Проверяем, что класс token-hover используется при подсветке
   });
 });

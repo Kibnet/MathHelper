@@ -73,12 +73,12 @@ export class DescriptionPanel {
   /**
    * Показывает описание правила
    */
-  showRule(rule: any): void {
+  showRule(rule: { id: string; name: string; group: string; preview: string }): void {
     const description = getRuleDescription(rule.id);
-    
+
     this.container.innerHTML = `
       <p><strong>Правило:</strong> ${rule.name}</p>
-      <p><strong>Категория:</strong> ${rule.category}</p>
+      <p><strong>Группа:</strong> ${rule.group}</p>
       <p><strong>Предпросмотр:</strong> <code>${rule.preview}</code></p>
       <p><strong>Описание:</strong> ${description}</p>
     `;
