@@ -1,14 +1,7 @@
 /**
  * Компонент панели истории преобразований
  */
-import type { ASTNode } from '../../types/index.js';
-
-export interface HistoryState {
-  expression: string;
-  ruleName: string;
-  node: ASTNode;
-  timestamp: number;
-}
+import type { HistoryState, MathStepsNode } from '../../types/index.js';
 
 export interface HistoryPanelConfig {
   onHistoryClick?: (index: number) => void;
@@ -32,7 +25,7 @@ export class HistoryPanel {
   /**
    * Добавляет новое состояние в историю
    */
-  addState(expression: string, ruleName: string, node: ASTNode): void {
+  addState(expression: string, ruleName: string, node: MathStepsNode): void {
     // Обрезаем историю, если мы не в конце
     if (this.currentIndex < this.states.length - 1) {
       this.states = this.states.slice(0, this.currentIndex + 1);

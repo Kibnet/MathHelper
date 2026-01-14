@@ -2,11 +2,11 @@
  * Компонент отображения выражения с токенизацией и фреймами подвыражений
  */
 import { tokenize, getTokenTypeName, getTokenColor } from '../../utils/tokenizer.js';
-import { extractNodesFromAST, assignLevels, calculateTotalHeight } from '../../core/analyzer.js';
-import type { ASTNode } from '../../types/index.js';
+import { extractNodesFromMathStepsAst, assignLevels, calculateTotalHeight } from '../../core/analyzer.js';
+import type { FrameSelection, MathStepsNode } from '../../types/index.js';
 
 export interface ExpressionDisplayConfig {
-  onFrameClick?: (node: ASTNode, text: string, rules: any[]) => void;
+  onFrameClick?: (selection: FrameSelection) => void;
 }
 
 export class ExpressionDisplay {
@@ -26,7 +26,7 @@ export class ExpressionDisplay {
   /**
    * Отображает выражение с подсветкой токенов и фреймами
    */
-  render(exprString: string, rootNode: ASTNode): void {
+  render(exprString: string, rootNode: MathStepsNode): void {
     this.container.innerHTML = '';
     
     // Создаём текстовый элемент
@@ -100,8 +100,8 @@ export class ExpressionDisplay {
   /**
    * Создаёт фреймы подвыражений на основе AST дерева
    */
-  private createFrames(exprString: string, rootNode: ASTNode, rangesContainer: HTMLElement, textContainer: HTMLElement): void {
-    const subexpressions = extractNodesFromAST(rootNode, exprString);
+  private createFrames(exprString: string, rootNode: MathStepsNode, rangesContainer: HTMLElement, textContainer: HTMLElement): void {
+    const subexpressions = extractNodesFromMathStepsAst(rootNode, exprString);
     
     if (subexpressions.length === 0) {
       this.debugLog('No valid subexpressions found');
@@ -138,7 +138,7 @@ export class ExpressionDisplay {
       frame.dataset.text = pos.text;
       frame.dataset.start = pos.start.toString();
       frame.dataset.end = pos.end.toString();
-      frame.dataset.nodeId = pos.node.id;
+      frame.dataset.nodeId = '';
       
       // Создаём метку с ГЛАВНЫМ элементом узла внутри рамки
       const labelContainer = document.createElement('div');
@@ -147,12 +147,16 @@ export class ExpressionDisplay {
       const labelText = this.getNodeLabel(pos.node);
       
       // Для n-арных операций создаем отдельные span для каждого символа
-      if (pos.node.type === 'operator' && pos.node.children && pos.node.children.length > 2) {
+      if (this.isOperatorNode(pos.node) && pos.node.args && pos.node.args.length > 2) {
         // Находим все токены операторов для вычисления позиций
         const tokens = (pos as any).tokens || [];
         const operatorTokens = tokens.filter((t: Element) => {
           const text = t.textContent || '';
-          return text.startsWith(pos.node.value);
+          const operatorValue = pos.node.op;
+          if (!operatorValue) {
+            return false;
+          }
+          return text.startsWith(operatorValue);
         });
         
         // Создаем отдельный span для каждого символа оператора
@@ -175,7 +179,7 @@ export class ExpressionDisplay {
         }
       } 
       // Для неявного умножения создаем отдельные span для каждого символа '×'
-      else if (pos.node.type === 'implicit_mul' && pos.node.children && pos.node.children.length > 2) {
+      else if (this.isImplicitMultiplicationNode(pos.node) && pos.node.args && pos.node.args.length > 2) {
         // Находим все токены операндов для вычисления позиций
         const tokens = (pos as any).tokens || [];
         const operandTokens = tokens.filter((t: Element) => {
@@ -207,7 +211,7 @@ export class ExpressionDisplay {
         }
       }
       // Для групп (скобок) создаем отдельные span для каждой скобки
-      else if (pos.node.type === 'group') {
+      else if (this.isParenthesisNode(pos.node)) {
         // Находим токены скобок для вычисления позиций
         const tokens = (pos as any).tokens || [];
         const bracketTokens = tokens.filter((t: Element) => {
@@ -263,11 +267,11 @@ export class ExpressionDisplay {
       
       // Наведение для подсветки токенов
       frame.addEventListener('mouseenter', () => {
-        this.highlightTokens((pos as any).tokens || [], true, pos.node);
+        this.highlightTokens((pos as any).tokens || [], true);
       });
       
       frame.addEventListener('mouseleave', () => {
-        this.highlightTokens((pos as any).tokens || [], false, pos.node);
+        this.highlightTokens((pos as any).tokens || [], false);
       });
       
       // Клик для показа команд
@@ -277,7 +281,10 @@ export class ExpressionDisplay {
         frame.classList.add('active');
         
         if (this.config.onFrameClick) {
-          this.config.onFrameClick(pos.node, pos.text, pos.rules);
+          this.config.onFrameClick({
+            text: pos.text,
+            path: pos.path || []
+          });
         }
       });
       
@@ -334,462 +341,178 @@ export class ExpressionDisplay {
   }
 
   /**
-   * Подсвечивает указанные токены с учётом структуры AST
+   * Подсвечивает указанные токены
    */
-  private highlightTokens(tokens: Element[], highlight: boolean, node?: ASTNode): void {
+  private highlightTokens(tokens: Element[], highlight: boolean): void {
     if (!tokens || tokens.length === 0) {
       this.debugLog('highlightTokens: no tokens provided');
       return;
     }
-    
-    this.debugLog('=== highlightTokens ===' );
-    this.debugLog('  highlight:', highlight);
-    this.debugLog('  node type:', node?.type);
-    this.debugLog('  node tokenIds:', node?.tokenIds);
-    this.debugLog('  tokens count:', tokens.length);
-    this.debugLog('  tokens:', tokens.map((t, i) => `[${i}] ${t.textContent} (data-token-id: ${(t as HTMLElement).dataset.tokenId}, data-original-index: ${(t as HTMLElement).dataset.originalIndex})`));
-    
+
     if (!highlight) {
-      // Убираем все классы подсветки
       tokens.forEach(token => {
         token.classList.remove('token-hover', 'token-operator-highlight', 'token-operand-left', 'token-operand-right');
       });
       return;
     }
-    
-    // Для унарного минуса - выделяем минус как оператор, а выражение справа как операнд
-    if (node && node.type === 'unary') {
-      const operandChild = node.children[0];
-      
-      // Получаем ID токенов операнда из AST (фильтруем -1)
-      const operandTokenIds = new Set((operandChild.tokenIds || []).filter((id: number) => id !== -1));
-      const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
-      
-      this.debugLog('  operandChild tokenIds:', Array.from(operandTokenIds));
-      this.debugLog('  allTokenIds:', Array.from(allTokenIds));
-      
-      // Ищем токен унарного минуса - тот, который есть в узле, но нет в операнде
-      const operatorTokenIds = [...allTokenIds].filter((id: number) => !operandTokenIds.has(id));
-      this.debugLog('  operatorTokenIds:', operatorTokenIds);
-      
-      const operandTokens: Element[] = [];
-      let operatorToken: Element | undefined;
-      
-      tokens.forEach((token) => {
-        const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
-        this.debugLog(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
-        
-        if (operandTokenIds.has(originalIndex)) {
-          operandTokens.push(token);
-          this.debugLog(`      -> Added to operandTokens`);
-        } else if (operatorTokenIds.includes(originalIndex)) {
-          operatorToken = token;
-          this.debugLog(`      -> Set as operatorToken`);
-        } else {
-          this.debugLog(`      -> Not matched`);
-        }
-      });
-      
-      this.debugLog('  Result:');
-      this.debugLog('    operator token:', operatorToken?.textContent);
-      this.debugLog('    operand tokens:', operandTokens.map(t => t.textContent));
-      
-      // Применяем классы
-      if (operatorToken) {
-        operatorToken.classList.add('token-operator-highlight');
-        this.debugLog(`    Applied token-operator-highlight to: ${operatorToken.textContent}`);
-      }
-      operandTokens.forEach(t => {
-        t.classList.add('token-operand-right');
-        this.debugLog(`    Applied token-operand-right to: ${t.textContent}`);
-      });
-    } 
-    // Для групп (скобок) - выделяем скобки как оператор, а выражение внутри как операнд
-    else if (node && node.type === 'group') {
-      const operandChild = node.children[0];
-      
-      // Получаем ID токенов операнда из AST (фильтруем -1)
-      const operandTokenIds = new Set((operandChild.tokenIds || []).filter((id: number) => id !== -1));
-      const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
-      
-      this.debugLog('  operandChild tokenIds:', Array.from(operandTokenIds));
-      this.debugLog('  allTokenIds:', Array.from(allTokenIds));
-      
-      // Ищем токены скобок - те, которые есть в узле, но нет в операнде
-      const bracketTokenIds = [...allTokenIds].filter((id: number) => !operandTokenIds.has(id));
-      this.debugLog('  bracketTokenIds:', bracketTokenIds);
-      
-      const operandTokens: Element[] = [];
-      const bracketTokens: Element[] = [];
-      
-      tokens.forEach((token) => {
-        const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
-        this.debugLog(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
-        
-        if (operandTokenIds.has(originalIndex)) {
-          operandTokens.push(token);
-          this.debugLog(`      -> Added to operandTokens`);
-        } else if (bracketTokenIds.includes(originalIndex)) {
-          bracketTokens.push(token);
-          this.debugLog(`      -> Added to bracketTokens`);
-        } else {
-          this.debugLog(`      -> Not matched`);
-        }
-      });
-      
-      this.debugLog('  Result:');
-      this.debugLog('    bracket tokens:', bracketTokens.map(t => t.textContent));
-      this.debugLog('    operand tokens:', operandTokens.map(t => t.textContent));
-      
-      // Применяем классы - скобки как оператор, содержимое как операнд
-      bracketTokens.forEach(t => {
-        t.classList.add('token-operator-highlight');
-        this.debugLog(`    Applied token-operator-highlight to: ${t.textContent}`);
-      });
-      operandTokens.forEach(t => {
-        t.classList.add('token-operand-right');
-        this.debugLog(`    Applied token-operand-right to: ${t.textContent}`);
-      });
-    }
-    // Для операторов и неявного умножения - выделяем оператор и операнды
-    else if (node && (node.type === 'operator' || node.type === 'implicit_mul')) {
-      const children = (node as any).children;
-      
-      // Для n-арных операций (более 2 операндов)
-      if (children && children.length > 2) {
-        // Получаем все ID токенов операндов из AST (фильтруем -1)
-        const operandTokenIdSets: Set<number>[] = [];
-        const allOperandTokenIds = new Set<number>();
-        
-        children.forEach((child: ASTNode) => {
-          const childTokenIds = new Set((child.tokenIds || []).filter((id: number) => id !== -1));
-          operandTokenIdSets.push(childTokenIds);
-          childTokenIds.forEach(id => allOperandTokenIds.add(id));
-        });
-        
-        const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
-        
-        this.debugLog('  operandTokenIdSets:', operandTokenIdSets.map(set => Array.from(set)));
-        this.debugLog('  allOperandTokenIds:', Array.from(allOperandTokenIds));
-        this.debugLog('  allTokenIds:', Array.from(allTokenIds));
-        
-        // Ищем токены операторов - те, которые есть в узле, но нет в операндах
-        const operatorTokenIds = [...allTokenIds].filter((id: number) => !allOperandTokenIds.has(id));
-        this.debugLog('  operatorTokenIds:', operatorTokenIds);
-        
-        const operandTokensArrays: Element[][] = children.map(() => [] as Element[]);
-        const operatorTokens: Element[] = [];
-        
-        tokens.forEach((token) => {
-          const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
-          this.debugLog(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
-          
-          // Проверяем, является ли токен оператором
-          if (operatorTokenIds.includes(originalIndex)) {
-            operatorTokens.push(token);
-            this.debugLog(`      -> Added to operatorTokens`);
-          } else {
-            // Проверяем, к какому операнду относится токен
-            operandTokenIdSets.forEach((operandTokenIds, operandIndex) => {
-              if (operandTokenIds.has(originalIndex)) {
-                operandTokensArrays[operandIndex].push(token);
-                this.debugLog(`      -> Added to operandTokens[${operandIndex}]`);
-              }
-            });
-          }
-        });
-        
-        this.debugLog('  Result:');
-        this.debugLog('    operator tokens:', operatorTokens.map(t => t.textContent));
-        operandTokensArrays.forEach((operandTokens, i) => {
-          this.debugLog(`    operand[${i}] tokens:`, operandTokens.map(t => t.textContent));
-        });
-        
-        // Применяем классы - все операторы выделяем зеленой рамкой
-        operatorTokens.forEach(token => {
-          token.classList.add('token-operator-highlight');
-          this.debugLog(`    Applied token-operator-highlight to: ${token.textContent}`);
-        });
-        
-        // Поочередно подсвечиваем операнды (чередующиеся цвета)
-        operandTokensArrays.forEach((operandTokens, i) => {
-          const highlightClass = i % 2 === 0 ? 'token-operand-left' : 'token-operand-right';
-          operandTokens.forEach(t => {
-            t.classList.add(highlightClass);
-            this.debugLog(`    Applied ${highlightClass} to: ${t.textContent}`);
-          });
-        });
-      } else {
-        // Для бинарных операций - старая логика
-        const [leftChild, rightChild] = children;
-        
-        // Получаем ID токенов левого и правого операндов из AST (фильтруем -1)
-        const leftTokenIds = new Set((leftChild.tokenIds || []).filter((id: number) => id !== -1));
-        const rightTokenIds = new Set((rightChild.tokenIds || []).filter((id: number) => id !== -1));
-        const allTokenIds = new Set((node.tokenIds || []).filter((id: number) => id !== -1));
-        
-        this.debugLog('  leftChild tokenIds:', Array.from(leftTokenIds));
-        this.debugLog('  rightChild tokenIds:', Array.from(rightTokenIds));
-        this.debugLog('  allTokenIds:', Array.from(allTokenIds));
-        
-        // Ищем токен оператора - тот, который есть в узле, но нет ни в левом, ни в правом дочернем узле
-        const operatorTokenIds = [...allTokenIds].filter((id: number) => !leftTokenIds.has(id) && !rightTokenIds.has(id));
-        this.debugLog('  operatorTokenIds:', operatorTokenIds);
-        
-        const leftTokens: Element[] = [];
-        const rightTokens: Element[] = [];
-        let operatorToken: Element | undefined;
-        
-        tokens.forEach((token) => {
-          const originalIndex = parseInt((token as HTMLElement).dataset.originalIndex || '-2'); // -2 для отличия от -1
-          this.debugLog(`    Checking token: ${token.textContent}, originalIndex: ${originalIndex}`);
-          
-          if (leftTokenIds.has(originalIndex)) {
-            leftTokens.push(token);
-            this.debugLog(`      -> Added to leftTokens`);
-          } else if (rightTokenIds.has(originalIndex)) {
-            rightTokens.push(token);
-            this.debugLog(`      -> Added to rightTokens`);
-          } else if (operatorTokenIds.includes(originalIndex)) {
-            operatorToken = token;
-            this.debugLog(`      -> Set as operatorToken`);
-          } else {
-            this.debugLog(`      -> Not matched`);
-          }
-        });
-        
-        this.debugLog('  Result:');
-        this.debugLog('    operator token:', operatorToken?.textContent);
-        this.debugLog('    left tokens:', leftTokens.map(t => t.textContent));
-        this.debugLog('    right tokens:', rightTokens.map(t => t.textContent));
-        
-        // Применяем классы
-        if (operatorToken) {
-          operatorToken.classList.add('token-operator-highlight');
-          this.debugLog(`    Applied token-operator-highlight to: ${operatorToken.textContent}`);
-        }
-        leftTokens.forEach(t => {
-          t.classList.add('token-operand-left');
-          this.debugLog(`    Applied token-operand-left to: ${t.textContent}`);
-        });
-        rightTokens.forEach(t => {
-          t.classList.add('token-operand-right');
-          this.debugLog(`    Applied token-operand-right to: ${t.textContent}`);
-        });
-      }
-    } else {
-      // Для остальных типов - просто подсвечиваем
-      this.debugLog('  Applying simple hover highlight');
-      tokens.forEach(token => {
-        token.classList.add('token-hover');
-        this.debugLog(`    Applied token-hover to: ${token.textContent}`);
-      });
-    }
+
+    tokens.forEach(token => {
+      token.classList.add('token-hover');
+    });
   }
 
   /**
-   * Преобразует AST узел в строку для отображения в метке
+   * Преобразует mathjs узел в строку для отображения в метке
    */
-  private getNodeLabel(node: ASTNode): string {
-    switch (node.type) {
-      case 'operator':
-        // Для n-арных операций показываем все операторы
-        if (node.children && node.children.length > 2) {
-          // Для сложения показываем все +
-          if (node.value === '+') {
-            return '+'.repeat(node.children.length - 1);
-          }
-          // Для умножения показываем все *
-          if (node.value === '*') {
-            return '*'.repeat(node.children.length - 1);
-          }
-        }
-        return node.value;
-      
-      case 'implicit_mul':
-        // Для n-арных неявных умножений показываем символы ×
-        if (node.children && node.children.length > 2) {
-          // Показываем × для каждого неявного умножения между операндами
-          return '×'.repeat(node.children.length - 1);
-        }
-        // Для бинарного неявного умножения показываем один символ
-        return '×';
-      
-      case 'group':
-        // Для групп показываем скобки
-        return '()';
-      
-      case 'unary':
-        // Для унарного минуса показываем -
-        return '-';
-      
-      case 'constant':
-      case 'variable':
-        // Для чисел и переменных показываем значение
-        return String(node.value);
-      
-      default:
-        return '?';
+  private getNodeLabel(node: MathStepsNode): string {
+    if (this.isOperatorNode(node)) {
+      const op = node.op || '?';
+      const argsCount = node.args ? node.args.length : 0;
+
+      if (this.isImplicitMultiplicationNode(node)) {
+        return argsCount > 2 ? '×'.repeat(argsCount - 1) : '×';
+      }
+
+      return argsCount > 2 ? op.repeat(argsCount - 1) : op;
     }
+
+    if (this.isParenthesisNode(node)) {
+      return '()';
+    }
+
+    if (node.type === 'ConstantNode') {
+      return String(node.value);
+    }
+
+    if (node.type === 'SymbolNode') {
+      return node.name || '';
+    }
+
+    return '?';
   }
+
   /**
    * Вычисляет позицию метки под главным элементом
    */
-  private calculateLabelPosition(node: ASTNode, tokens: Element[], frameLeft: number): { left: number; width: number } | null {
+  private calculateLabelPosition(node: MathStepsNode, tokens: Element[], frameLeft: number): { left: number; width: number } | null {
     if (tokens.length === 0) return null;
 
-    this.debugLog('calculateLabelPosition:', node.type, node.value, 'tokens:', tokens.map(t => t.textContent));
+    this.debugLog('calculateLabelPosition:', node.type, node.op, 'tokens:', tokens.map(t => t.textContent));
 
-    switch (node.type) {
-      case 'operator': {
-        // Для n-арных операций (более 2 операндов) находим все токены операторов
-        if (node.children && node.children.length > 2) {
-          // Находим все токены операторов (ищем по содержимому, игнорируя суффиксы)
-          const operatorTokens = tokens.filter(t => {
-            const text = t.textContent || '';
-            // Ищем оператор в начале текста (до возможного суффикса типа "Оператор")
-            return text.startsWith(node.value);
-          }).map(t => t as HTMLElement);
-          
-          this.debugLog('Looking for n-ary operators:', node.value, 'found:', operatorTokens.map(t => t.textContent));
-          
-          if (operatorTokens.length > 0) {
-            // Для точного выравнивания каждого символа в метке с каждым оператором в выражении
-            // Используем позицию первого оператора как базовую точку
-            const firstOperator = operatorTokens[0];
-            // Ширина метки рассчитывается для размещения всех символов с учетом их позиций
-            const lastOperator = operatorTokens[operatorTokens.length - 1];
-            const totalWidth = (lastOperator.offsetLeft + lastOperator.offsetWidth) - firstOperator.offsetLeft;
-            
-            // Позиционируем метку относительно фрейма
-            // Для n-арных операций позиционируем метку так, чтобы она была центрирована
-            // над всеми операторами
-            const framePosition = firstOperator.offsetLeft - frameLeft;
-            
-            return {
-              left: framePosition,
-              width: totalWidth
-            };
-          }
-        } else {
-          // Для бинарных операций - старая логика
-          // Находим токен оператора (ищем по содержимому, игнорируя суффиксы)
-          const operatorToken = tokens.find(t => {
-            const text = t.textContent || '';
-            // Ищем оператор в начале текста (до возможного суффикса типа "Оператор")
-            return text.startsWith(node.value);
-          });
-          this.debugLog('Looking for operator:', node.value, 'found:', operatorToken?.textContent);
-          if (operatorToken) {
-            const htmlToken = operatorToken as HTMLElement;
-            return {
-              left: htmlToken.offsetLeft - frameLeft,
-              width: htmlToken.offsetWidth
-            };
-          }
-        }
-        break;
-      }
-      
-      case 'implicit_mul': {
-        // Для n-арных неявных умножений
-        if (node.children && node.children.length > 2) {
-          // Находим все токены операторов (операнды для неявного умножения)
-          const operandTokens = tokens.filter(t => {
-            const text = t.textContent || '';
-            // Исключаем явные операторы
-            return !['+', '-', '*', '/'].some(op => text.startsWith(op));
-          }).map(t => t as HTMLElement);
-          
-          if (operandTokens.length >= 2) {
-            // Для неявного умножения позиционируем метку по центру между первым и последним операндом
-            const firstOperand = operandTokens[0];
-            const lastOperand = operandTokens[operandTokens.length - 1];
-            
-            // Вычисляем центральную позицию
-            const totalWidth = (lastOperand.offsetLeft + lastOperand.offsetWidth) - firstOperand.offsetLeft;
-            const center = firstOperand.offsetLeft + totalWidth / 2;
-            
-            // Для n-1 операторов ×, позиционируем по центру
-            const operatorCount = node.children.length - 1;
-            const labelWidth = operatorCount * 10; // Примерная ширина для ×××
-            const left = center - labelWidth / 2 - frameLeft;
-            
-            return { 
-              left, 
-              width: labelWidth
-            };
-          }
-        } else {
-          // Для неявного умножения позиционируем метку между операндами
-          if (tokens.length >= 2) {
-            // Находим токены операндов
-            const firstToken = tokens[0] as HTMLElement;
-            // Ищем токен, который соответствует началу второго операнда
-            let secondToken = tokens.find((_, i) => i > 0) as HTMLElement;
-            
-            // Если не нашли второй токен, используем последний
-            if (!secondToken) {
-              secondToken = tokens[tokens.length - 1] as HTMLElement;
-            }
-            
-            // Позиция между первым и вторым токенами
-            const midpoint = (firstToken.offsetLeft + firstToken.offsetWidth + secondToken.offsetLeft) / 2;
-            const left = midpoint - frameLeft - 10; // Центрируем метку (примерно 20px ширина)
-            
-            return { 
-              left, 
-              width: 20 // Фиксированная ширина для символа ×
-            };
-          }
-        }
-        break;
-      }
-      
-      case 'group': {
-        // Находим скобки (ищем по содержимому, игнорируя суффиксы)
-        const openBracket = tokens.find(t => (t.textContent || '').startsWith('('));
-        const closeBracket = tokens.reverse().find(t => (t.textContent || '').startsWith(')'));
-        tokens.reverse(); // Возвращаем порядок
-        this.debugLog('Looking for brackets, open:', openBracket?.textContent, 'close:', closeBracket?.textContent);
-        if (openBracket && closeBracket) {
-          const openEl = openBracket as HTMLElement;
-          const closeEl = closeBracket as HTMLElement;
+    if (this.isOperatorNode(node)) {
+      const operatorValue = node.op || '';
+      if (node.args && node.args.length > 2 && !this.isImplicitMultiplicationNode(node)) {
+        const operatorTokens = operatorValue
+          ? tokens.filter(t => {
+              const text = t.textContent || '';
+              return text.startsWith(operatorValue);
+            }).map(t => t as HTMLElement)
+          : [];
+
+        this.debugLog('Looking for n-ary operators:', operatorValue, 'found:', operatorTokens.map(t => t.textContent));
+
+        if (operatorTokens.length > 0) {
+          const firstOperator = operatorTokens[0];
+          const lastOperator = operatorTokens[operatorTokens.length - 1];
+          const totalWidth = (lastOperator.offsetLeft + lastOperator.offsetWidth) - firstOperator.offsetLeft;
+          const framePosition = firstOperator.offsetLeft - frameLeft;
+
           return {
-            left: openEl.offsetLeft - frameLeft,
-            width: (closeEl.offsetLeft + closeEl.offsetWidth) - openEl.offsetLeft
+            left: framePosition,
+            width: totalWidth
           };
         }
-        break;
-      }
-      
-      case 'unary': {
-        // Под унарным минусом (ищем по содержимому, игнорируя суффиксы)
-        const minusToken = tokens.find(t => (t.textContent || '').startsWith('-'));
-        this.debugLog('Looking for unary minus, found:', minusToken?.textContent);
-        if (minusToken) {
-          const htmlToken = minusToken as HTMLElement;
+      } else if (!this.isImplicitMultiplicationNode(node)) {
+        const operatorToken = operatorValue
+          ? tokens.find(t => {
+              const text = t.textContent || '';
+              return text.startsWith(operatorValue);
+            })
+          : undefined;
+        this.debugLog('Looking for operator:', operatorValue, 'found:', operatorToken?.textContent);
+        if (operatorToken) {
+          const htmlToken = operatorToken as HTMLElement;
           return {
             left: htmlToken.offsetLeft - frameLeft,
             width: htmlToken.offsetWidth
           };
         }
-        break;
       }
-      
-      case 'constant':
-      case 'variable': {
-        // Под числом или переменной - все токены
+    }
+
+    if (this.isImplicitMultiplicationNode(node)) {
+      if (node.args && node.args.length > 2) {
+        const operandTokens = tokens.filter(t => {
+          const text = t.textContent || '';
+          return !['+', '-', '*', '/'].some(op => text.startsWith(op));
+        }).map(t => t as HTMLElement);
+
+        if (operandTokens.length >= 2) {
+          const firstOperand = operandTokens[0];
+          const lastOperand = operandTokens[operandTokens.length - 1];
+          const totalWidth = (lastOperand.offsetLeft + lastOperand.offsetWidth) - firstOperand.offsetLeft;
+          const center = firstOperand.offsetLeft + totalWidth / 2;
+          const operatorCount = node.args.length - 1;
+          const labelWidth = operatorCount * 10;
+          const left = center - labelWidth / 2 - frameLeft;
+
+          return {
+            left,
+            width: labelWidth
+          };
+        }
+      } else if (tokens.length >= 2) {
         const firstToken = tokens[0] as HTMLElement;
-        const lastToken = tokens[tokens.length - 1] as HTMLElement;
+        let secondToken = tokens.find((_, i) => i > 0) as HTMLElement;
+
+        if (!secondToken) {
+          secondToken = tokens[tokens.length - 1] as HTMLElement;
+        }
+
+        const midpoint = (firstToken.offsetLeft + firstToken.offsetWidth + secondToken.offsetLeft) / 2;
+        const left = midpoint - frameLeft - 10;
+
         return {
-          left: 0, // Относительно начала рамки
-          width: (lastToken.offsetLeft + lastToken.offsetWidth) - firstToken.offsetLeft
+          left,
+          width: 20
         };
       }
     }
 
-    this.debugLog('No matching case for node type:', node.type);
-    return null;
+    if (this.isParenthesisNode(node)) {
+      const openBracket = tokens.find(t => (t.textContent || '').startsWith('('));
+      const closeBracket = tokens.slice().reverse().find(t => (t.textContent || '').startsWith(')'));
+      this.debugLog('Looking for brackets, open:', openBracket?.textContent, 'close:', closeBracket?.textContent);
+      if (openBracket && closeBracket) {
+        const openEl = openBracket as HTMLElement;
+        const closeEl = closeBracket as HTMLElement;
+        return {
+          left: openEl.offsetLeft - frameLeft,
+          width: (closeEl.offsetLeft + closeEl.offsetWidth) - openEl.offsetLeft
+        };
+      }
+    }
+
+    const firstToken = tokens[0] as HTMLElement;
+    const lastToken = tokens[tokens.length - 1] as HTMLElement;
+    const left = firstToken.offsetLeft - frameLeft;
+    const width = (lastToken.offsetLeft + lastToken.offsetWidth) - firstToken.offsetLeft;
+
+    return {
+      left,
+      width
+    };
+  }
+
+  private isOperatorNode(node: MathStepsNode): boolean {
+    return node.type === 'OperatorNode';
+  }
+
+  private isParenthesisNode(node: MathStepsNode): boolean {
+    return node.type === 'ParenthesisNode';
+  }
+
+  private isImplicitMultiplicationNode(node: MathStepsNode): boolean {
+    return this.isOperatorNode(node) && node.op === '*' && node.implicit === true;
   }
 }

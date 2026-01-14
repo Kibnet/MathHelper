@@ -74,13 +74,59 @@ export interface TransformationRule {
  * Типы анализа подвыражений
  */
 
+export type MathStepsPath = Array<'args' | 'content' | number>;
+
+export interface MathStepsNode {
+  type: string;
+  args?: MathStepsNode[];
+  content?: MathStepsNode;
+  op?: string;
+  fn?: string;
+  implicit?: boolean;
+  value?: unknown;
+  name?: string;
+  toString: () => string;
+}
+
+export interface MathStepsTransformPreview {
+  oldNode: MathStepsNode;
+  newNode: MathStepsNode;
+  changeType: string;
+  substeps: MathStepsTransformPreview[];
+}
+
+export interface MathStepsTransform {
+  id: string;
+  title: string;
+  changeType: string;
+  preview: MathStepsTransformPreview;
+  path: MathStepsPath;
+  changedPaths: Array<{ path: MathStepsPath; groupId: string }>;
+  searcher: string;
+}
+
+export interface MathStepsOperation {
+  id: string;
+  name: string;
+  preview: string;
+  group: string;
+  selectionPath: MathStepsPath;
+  transform: MathStepsTransform;
+}
+
+export interface FrameSelection {
+  text: string;
+  path: MathStepsPath;
+}
+
 export interface Subexpression {
   text: string;
   start: number;
   end: number;
-  node: ASTNode;
+  node: ASTNode | MathStepsNode;
   length: number;
-  rules: TransformationRule[];
+  rules?: TransformationRule[];
+  path?: MathStepsPath;
   level?: number;
 }
 
@@ -102,6 +148,6 @@ export interface LayoutConfig {
 export interface HistoryState {
   expression: string;
   ruleName: string;
-  node: ASTNode;
+  node: ASTNode | MathStepsNode;
   timestamp: number;
 }

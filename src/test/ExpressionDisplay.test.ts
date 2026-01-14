@@ -2,11 +2,9 @@
  * Тесты для компонента отображения выражений
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ExpressionDisplay } from '../ui/components/ExpressionDisplay.js';
-import { ExpressionParser } from '../core/parser.js';
-import { ExpressionEditorApp } from '../ui/ExpressionEditorApp.js';
-import { getApplicableRules } from '../core/rules.js';
+import { MathStepsEngine } from '../core/mathsteps-engine.js';
 
 describe('ExpressionDisplay', () => {
   let container: HTMLElement;
@@ -27,14 +25,15 @@ describe('ExpressionDisplay', () => {
 
   it('should create frame labels with correct positioning for implicit multiplication', () => {
     // Создаём тестовое выражение с неявным умножением
-    const parser = new ExpressionParser('2x');
-    const ast = parser.parse();
+    const engine = new MathStepsEngine();
+    const ast = engine.parse('2x');
+    const exprString = engine.stringify(ast);
     
     // Создаём компонент отображения
     const display = new ExpressionDisplay('test-container');
     
     // Рендерим выражение
-    display.render('2x', ast);
+    display.render(exprString, ast);
     
     // Проверяем, что контейнер создан
     const textContainer = document.querySelector('.expression-text');
@@ -68,18 +67,19 @@ describe('ExpressionDisplay', () => {
   it('should position frame labels correctly for different node types', () => {
     // Тест для различных типов узлов
     const testCases = [
-      { expr: '2 + 3', expectedLabels: ['+', '2', '3'] },
-      { expr: '2 * 3', expectedLabels: ['*', '2', '3'] },
-      { expr: '2x', expectedLabels: ['×', '2', 'x'] },
-      { expr: '(2)', expectedLabels: ['(', ')', '2'] }
+      { expr: '2 + 3', expectedLabels: ['+'] },
+      { expr: '2 * 3', expectedLabels: ['*'] },
+      { expr: '2x', expectedLabels: ['×'] },
+      { expr: '(2)', expectedLabels: ['(', ')'] }
     ];
     
     for (const testCase of testCases) {
-      const parser = new ExpressionParser(testCase.expr);
-      const ast = parser.parse();
+      const engine = new MathStepsEngine();
+      const ast = engine.parse(testCase.expr);
+      const exprString = engine.stringify(ast);
       
       const display = new ExpressionDisplay('test-container');
-      display.render(testCase.expr, ast);
+      display.render(exprString, ast);
       
       // Проверяем, что созданы фреймы с ожидаемыми метками
       const frames = document.querySelectorAll('.expression-range');
@@ -97,55 +97,5 @@ describe('ExpressionDisplay', () => {
       // Очищаем контейнер для следующей итерации
       container.innerHTML = '';
     }
-  });
-});
-
-describe('ExpressionEditorApp - парные подвыражения', () => {
-  let appRoot: HTMLElement;
-
-  beforeEach(() => {
-    vi.useFakeTimers();
-
-    appRoot = document.createElement('div');
-    appRoot.innerHTML = `
-      <input id="expressionInput" />
-      <div id="errorMessage"></div>
-      <div id="expressionContainer"></div>
-      <div id="commandsPanel"></div>
-      <div id="historyPanel"></div>
-      <div id="descriptionPanel"></div>
-      <button id="buildBtn"></button>
-      <button id="clearBtn"></button>
-    `;
-    document.body.appendChild(appRoot);
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    if (appRoot && appRoot.parentNode) {
-      appRoot.parentNode.removeChild(appRoot);
-    }
-  });
-
-  it('should keep multiplication when factoring a pair inside a sum', () => {
-    const app = new ExpressionEditorApp();
-    vi.runOnlyPendingTimers();
-
-    const parser = new ExpressionParser('2a + 2a + 7');
-    const root = parser.parse() as any;
-    const pairNode = {
-      ...root,
-      id: `${root.id}_pair_0`,
-      children: [root.children[0], root.children[1]]
-    };
-    const rules = getApplicableRules(pairNode);
-    const factorRule = rules.find(rule => rule.id === 'factor_common_left_all');
-    expect(factorRule).toBeTruthy();
-
-    app['currentNode'] = root;
-    app['expressionInput'].value = '2a + 2a + 7';
-    app['handleCommandClick'](factorRule, pairNode);
-
-    expect(app['expressionInput'].value).toBe('2a * (1 + 1) + 7');
   });
 });
