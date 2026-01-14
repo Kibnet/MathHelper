@@ -13,6 +13,8 @@ describe('MathStepsEngine', () => {
 
     const operations = engine.listOps(expression, []);
     expect(operations.length).toBeGreaterThan(0);
+    expect(operations[0].category).toBeTruthy();
+    expect(operations[0].description).toBeTruthy();
 
     const target = operations[0];
     const applied = engine.apply(expression, [], target.id);

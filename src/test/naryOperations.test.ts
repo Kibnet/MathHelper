@@ -67,8 +67,8 @@ describe('N-ary Operations Highlighting', () => {
     display['highlightTokens'](tokenArray, true);
     
     // Проверяем, что токены операторов имеют правильный класс
-    // Ищем токены, содержащие "*"
-    const operatorTokens = tokenArray.filter(t => (t.textContent || '').includes('*'));
+    // Ищем токены, содержащие "·"
+    const operatorTokens = tokenArray.filter(t => (t.textContent || '').includes('·'));
     expect(operatorTokens.length).toBeGreaterThanOrEqual(1);
     operatorTokens.forEach(token => {
       expect(token.classList.contains('token-hover')).toBe(true);
@@ -102,7 +102,7 @@ describe('N-ary Operations Highlighting', () => {
     const label = display['getNodeLabel'](ast);
     
     // Для n-арного умножения с 4 операндами должно быть 3 знака *
-    expect(label).toContain('*');
+    expect(label).toContain('·');
   });
 
   // Новый тест для проверки правильного позиционирования меток

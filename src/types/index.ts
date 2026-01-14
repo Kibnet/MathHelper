@@ -74,7 +74,7 @@ export interface TransformationRule {
  * Типы анализа подвыражений
  */
 
-export type MathStepsPath = Array<'args' | 'content' | number>;
+export type MathStepsPath = Array<'args' | 'content' | 'left' | 'right' | number>;
 
 export interface MathStepsNode {
   type: string;
@@ -88,9 +88,17 @@ export interface MathStepsNode {
   toString: () => string;
 }
 
+export interface EquationNode {
+  type: 'EquationNode';
+  comparator: string;
+  leftNode: MathStepsNode;
+  rightNode: MathStepsNode;
+  toString: () => string;
+}
+
 export interface MathStepsTransformPreview {
-  oldNode: MathStepsNode;
-  newNode: MathStepsNode;
+  oldNode: MathStepsNode | EquationNode;
+  newNode: MathStepsNode | EquationNode;
   changeType: string;
   substeps: MathStepsTransformPreview[];
 }
@@ -109,9 +117,12 @@ export interface MathStepsOperation {
   id: string;
   name: string;
   preview: string;
-  group: string;
+  category: string;
+  order: number;
+  description: string;
+  assumptions?: string[];
   selectionPath: MathStepsPath;
-  transform: MathStepsTransform;
+  transform?: MathStepsTransform;
 }
 
 export interface FrameSelection {
@@ -148,6 +159,7 @@ export interface LayoutConfig {
 export interface HistoryState {
   expression: string;
   ruleName: string;
-  node: ASTNode | MathStepsNode;
+  node: ASTNode | MathStepsNode | EquationNode;
+  assumptions?: string[];
   timestamp: number;
 }

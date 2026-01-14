@@ -1,7 +1,7 @@
 /**
  * Компонент панели истории преобразований
  */
-import type { HistoryState, MathStepsNode } from '../../types/index.js';
+import type { EquationNode, HistoryState, MathStepsNode } from '../../types/index.js';
 
 export interface HistoryPanelConfig {
   onHistoryClick?: (index: number) => void;
@@ -25,7 +25,7 @@ export class HistoryPanel {
   /**
    * Добавляет новое состояние в историю
    */
-  addState(expression: string, ruleName: string, node: MathStepsNode): void {
+  addState(expression: string, ruleName: string, node: MathStepsNode | EquationNode, assumptions: string[] = []): void {
     // Обрезаем историю, если мы не в конце
     if (this.currentIndex < this.states.length - 1) {
       this.states = this.states.slice(0, this.currentIndex + 1);
@@ -35,6 +35,7 @@ export class HistoryPanel {
       expression,
       ruleName,
       node,
+      assumptions: assumptions.length > 0 ? assumptions : undefined,
       timestamp: Date.now()
     });
     
@@ -101,9 +102,16 @@ export class HistoryPanel {
       const rule = document.createElement('div');
       rule.className = 'history-rule';
       rule.textContent = `${index === 0 ? '🎯' : '→'} ${state.ruleName}`;
-      
+
       item.appendChild(expr);
       item.appendChild(rule);
+
+      if (state.assumptions && state.assumptions.length > 0) {
+        const assumptions = document.createElement('div');
+        assumptions.className = 'history-assumptions';
+        assumptions.textContent = `Допущения: ${state.assumptions.join(', ')}`;
+        item.appendChild(assumptions);
+      }
       
       item.addEventListener('click', () => {
         if (this.config.onHistoryClick) {

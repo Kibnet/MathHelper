@@ -251,6 +251,37 @@
   min-width: 100%;
 }
 
+.expr-node {
+  display: inline-block;
+  position: relative;
+}
+
+.expr-power {
+  display: inline-flex;
+  align-items: flex-start;
+}
+
+.expr-sup {
+  font-size: 0.75em;
+  line-height: 1;
+  margin-left: 2px;
+}
+
+.expr-nth-root {
+  display: inline-flex;
+  align-items: flex-start;
+}
+
+.expr-root-index {
+  font-size: 0.6em;
+  line-height: 1;
+  margin-right: 2px;
+}
+
+.expr-root-symbol {
+  margin-right: 2px;
+}
+
 .expression-text:hover {
   border-color: var(--accent);
 }
@@ -464,6 +495,27 @@
   font-family: 'Courier New', monospace;
 }
 
+.command-description {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.command-assumptions {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.command-assumption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .command-selection {
   background: var(--accent-soft);
   border: 1px solid var(--accent);
@@ -511,6 +563,12 @@
 .history-rule {
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+.history-assumptions {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
 }
 
 /* Описание */

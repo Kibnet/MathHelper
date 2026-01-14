@@ -88,7 +88,7 @@ describe('Extended Span Labels', () => {
     // Для бинарного неявного умножения должна быть одна обычная метка
     const labelSpans = labelContainer!.querySelectorAll('.frame-label');
     expect(labelSpans.length).toBe(1);
-    expect(labelSpans[0].textContent).toBe('×');
+    expect(labelSpans[0].textContent).toBe('·');
   });
 
   it('should create separate spans for n-ary implicit multiplication', () => {
@@ -124,7 +124,7 @@ describe('Extended Span Labels', () => {
     
     // Проверяем содержимое символов
     const charTexts = Array.from(charSpans).map(span => span.textContent);
-    expect(charTexts).toContain('×');
+    expect(charTexts).toContain('·');
   });
 
   it('should create separate spans for group brackets', () => {

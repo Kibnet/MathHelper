@@ -47,12 +47,12 @@ describe('ExpressionDisplay', () => {
     let implicitMulFrame: HTMLElement | null = null;
     frames.forEach((frame: Element) => {
       const label = frame.querySelector('.frame-label');
-      if (label && label.textContent === '×') {
+      if (label && label.textContent === '·') {
         implicitMulFrame = frame as HTMLElement;
       }
     });
     
-    // Должен быть найден фрейм с меткой '×'
+    // Должен быть найден фрейм с меткой '·'
     expect(implicitMulFrame).toBeTruthy();
     
     // Проверяем, что у метки есть позиционирование
@@ -68,8 +68,8 @@ describe('ExpressionDisplay', () => {
     // Тест для различных типов узлов
     const testCases = [
       { expr: '2 + 3', expectedLabels: ['+'] },
-      { expr: '2 * 3', expectedLabels: ['*'] },
-      { expr: '2x', expectedLabels: ['×'] },
+      { expr: '2 * 3', expectedLabels: ['·'] },
+      { expr: '2x', expectedLabels: ['·'] },
       { expr: '(2)', expectedLabels: ['(', ')'] }
     ];
     

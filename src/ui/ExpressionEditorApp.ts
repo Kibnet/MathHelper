@@ -36,7 +36,7 @@ export class ExpressionEditorApp {
     });
     
     this.commandPanel = new CommandPanel('commandsPanel', {
-      onCommandClick: (operation) => this.handleCommandClick(operation)
+      onCommandClick: (operation, assumptions) => this.handleCommandClick(operation, assumptions)
     });
     
     this.historyPanel = new HistoryPanel('historyPanel', {
@@ -186,7 +186,7 @@ export class ExpressionEditorApp {
   /**
    * Обработчик клика на команду
    */
-  private handleCommandClick(operation: MathStepsOperation): void {
+  private handleCommandClick(operation: MathStepsOperation, assumptions: string[]): void {
     this.debugLog('Applying transformation:', operation.name, 'to path:', operation.selectionPath);
     try {
       if (!this.currentExpression) {
@@ -199,7 +199,7 @@ export class ExpressionEditorApp {
       this.currentExpression = newExpr;
 
       this.descriptionPanel.showRule(operation);
-      this.historyPanel.addState(newExpr, operation.name, result.newNode);
+      this.historyPanel.addState(newExpr, operation.name, result.newNode, assumptions);
 
       this.expressionInput.value = newExpr;
       this.expressionDisplay.render(newExpr, result.newNode);
@@ -243,7 +243,7 @@ export class ExpressionEditorApp {
    */
   private loadExample(): void {
     setTimeout(() => {
-      this.expressionInput.value = '2x + 3 * -(4 --- 2.4 )/ 23+abc';
+      this.expressionInput.value = '2x+3*-(4---(2.4+1))/23+abc';
       this.buildExpression();
     }, 500);
   }
