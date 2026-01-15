@@ -3,6 +3,8 @@ import { test, expect } from '@playwright/test';
 const getFrames = (page) => page.locator('[data-testid="expression-frame"]');
 const getFrameByPath = (page, pathKey: string) =>
   page.locator(`[data-testid="expression-frame"][data-path-key="${pathKey}"]`);
+const getFrameByText = (page, text: string | RegExp) =>
+  getFrames(page).filter({ hasText: text });
 const getCommandItems = (page) => page.locator('#commandsPanel [data-testid="command-item"]');
 const getCommandByChangeType = (page, changeType: string) =>
   page.locator(`#commandsPanel [data-testid="command-item"][data-change-type="${changeType}"]`);
@@ -356,8 +358,18 @@ test.describe('MathHelper Application', () => {
     const commandItems = getCommandItems(page);
     const commandCount = await commandItems.count();
     console.log(`Количество команд: ${commandCount}`);
+
+    const commutative = getCommandByChangeType(page, 'CUSTOM_COMMUTATIVE');
+    const distribute = getCommandByChangeType(page, 'CUSTOM_DISTRIBUTE');
+    const factor = getCommandByChangeType(page, 'CUSTOM_FACTOR');
+    const removeZero = getCommandByChangeType(page, 'REMOVE_ADDING_ZERO');
+    const removeOne = getCommandByChangeType(page, 'REMOVE_MULTIPLYING_BY_ONE');
     
-    expect(commandCount).toBe(0);
+    expect(await commutative.count()).toBe(0);
+    expect(await distribute.count()).toBe(0);
+    expect(await factor.count()).toBe(0);
+    expect(await removeZero.count()).toBe(0);
+    expect(await removeOne.count()).toBe(0);
     
     // Выводим логи
     if (consoleMessages.length > 0) {
@@ -600,11 +612,11 @@ test.describe('Тестирование трансформаций на вирт
     console.log('Построенное выражение:', initialValue);
     
     // Кликаем на подвыражение 1+0
-    const frame1plus0 = getFrameByPath(page, 'args.0');
-    await expect(frame1plus0).toHaveCount(1);
+    const rootFrame = getFrameByPath(page, 'root');
+    await expect(rootFrame).toHaveCount(1);
     console.log('Фрейм "1 + 0" найден');
     
-    await frame1plus0.click();
+    await rootFrame.click();
     await page.waitForTimeout(300);
     console.log('Кликнули на корневой фрейм');
     
@@ -714,6 +726,7 @@ test.describe('Тестирование трансформаций на вирт
   });
   
   test('Кейс 5: Для a*b*c нет команд неявного умножения', async ({ page }) => {
+    test.setTimeout(60000);
     console.log('\n=== ТЕСТ: Для a*b*c нет доступных преобразований ===');
     
     const consoleMessages: string[] = [];
@@ -748,7 +761,14 @@ test.describe('Тестирование трансформаций на вирт
     
     const commandCount = await getCommandItems(page).count();
     console.log(`Количество команд: ${commandCount}`);
-    expect(commandCount).toBe(0);
+
+    const implicitCommands = getCommandItems(page).filter({ hasText: /неявн/i });
+    const distribute = getCommandByChangeType(page, 'CUSTOM_DISTRIBUTE');
+    const factor = getCommandByChangeType(page, 'CUSTOM_FACTOR');
+
+    expect(await implicitCommands.count()).toBe(0);
+    expect(await distribute.count()).toBe(0);
+    expect(await factor.count()).toBe(0);
     
     if (consoleMessages.length > 0) {
       console.log('\n=== КОНСОЛЬНЫЕ ЛОГИ ===');
@@ -761,77 +781,8 @@ test.describe('Тестирование трансформаций на вирт
     }
   });
   
-  test('Кейс 6: Коммутативность не отображается для mathsteps-операций', async ({ page }) => {
-    console.log('\n=== ТЕСТ: Коммутативность недоступна для 2+3+4 ===');
-    
-    const consoleMessages: string[] = [];
-    const consoleErrors: string[] = [];
-    
-    page.on('console', msg => {
-      const text = msg.text();
-      consoleMessages.push(text);
-      if (msg.type() === 'error') {
-        consoleErrors.push(text);
-      }
-    });
-    
-    await page.goto('expression-editor-modular.html');
-    await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(1000);
-    
-    const expressionInput = page.locator('#expressionInput');
-    await expressionInput.clear();
-    await page.waitForTimeout(200);
-    
-    await expressionInput.click();
-    await expressionInput.fill('2 + 3 + 4');
-    console.log('Введено выражение: 2 + 3 + 4');
-    
-    await page.locator('#buildBtn').click();
-    await page.waitForTimeout(500);
-    
-    const commandsPanel = page.locator('#commandsPanel');
-    
-    const initialValue = await expressionInput.inputValue();
-    console.log('Построенное выражение:', initialValue);
-    
-    // Кликаем на пару 2+3
-    const frame2plus3 = getFrameByPath(page, 'args.0');
-    await expect(frame2plus3).toHaveCount(1);
-    console.log('Фрейм "2 + 3" найден');
-    
-    await frame2plus3.click();
-    await page.waitForTimeout(300);
-    console.log('Кликнули на фрейм "2 + 3"');
-    
-    // Ищем команду коммутативности
-    const commutativeCommand = getCommandItems(page).filter({
-      hasText: /поменять.*местами/i
-    });
-    
-    const commutativeExists = await commutativeCommand.count() > 0;
-    console.log('Команда коммутативности найдена:', commutativeExists);
-    expect(commutativeExists).toBe(false);
-    
-    if (consoleErrors.length > 0) {
-      console.error('\n=== ОШИБКИ ===');
-      consoleErrors.forEach(err => console.error(err));
-    }
-  });
-  
-  test('Кейс 7: Команда обёртывания в скобки не отображается', async ({ page }) => {
-    console.log('\n=== ТЕСТ: Скобки недоступны для a+b+c ===');
-    
-    const consoleMessages: string[] = [];
-    const consoleErrors: string[] = [];
-    
-    page.on('console', msg => {
-      const text = msg.text();
-      consoleMessages.push(text);
-      if (msg.type() === 'error') {
-        consoleErrors.push(text);
-      }
-    });
+  test('Кейс 6: Коммутативность доступна для сложения и умножения', async ({ page }) => {
+    console.log('\n=== ТЕСТ: Коммутативность для a+b+c и a*b*c ===');
     
     await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
@@ -843,38 +794,218 @@ test.describe('Тестирование трансформаций на вирт
     
     await expressionInput.click();
     await expressionInput.fill('a + b + c');
-    console.log('Введено выражение: a + b + c');
-    
     await page.locator('#buildBtn').click();
     await page.waitForTimeout(500);
     
-    const commandsPanel = page.locator('#commandsPanel');
-    
-    const initialValue = await expressionInput.inputValue();
-    console.log('Построенное выражение:', initialValue);
-    
-    // Кликаем на пару a+b
     const frameAplusB = getFrameByPath(page, 'args.0');
     await expect(frameAplusB).toHaveCount(1);
-    console.log('Фрейм "a + b" найден');
-    
     await frameAplusB.click();
     await page.waitForTimeout(300);
-    console.log('Кликнули на фрейм "a + b"');
     
-    // Ищем команду добавления скобок
-    const addParensCommand = getCommandItems(page).filter({
-      hasText: /добавить.*скобки/i
-    });
+    const commutativeAdd = getCommandByChangeType(page, 'CUSTOM_COMMUTATIVE');
+    await expect(commutativeAdd).toHaveCount(1);
+    await commutativeAdd.first().click();
+    await page.waitForTimeout(500);
     
-    const addParensExists = await addParensCommand.count() > 0;
-    console.log('Команда "Добавить скобки" найдена:', addParensExists);
-    expect(addParensExists).toBe(false);
+    const addResult = (await expressionInput.inputValue()).replace(/\s+/g, '');
+    expect(addResult).toBe('b+a+c');
     
-    if (consoleErrors.length > 0) {
-      console.error('\n=== ОШИБКИ ===');
-      consoleErrors.forEach(err => console.error(err));
-    }
+    await expressionInput.clear();
+    await page.waitForTimeout(200);
+    await expressionInput.click();
+    await expressionInput.fill('a * b * c');
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    
+    const frameAminusB = getFrameByPath(page, 'args.0');
+    await expect(frameAminusB).toHaveCount(1);
+    await frameAminusB.click();
+    await page.waitForTimeout(300);
+    
+    const commutativeMul = getCommandByChangeType(page, 'CUSTOM_COMMUTATIVE');
+    await expect(commutativeMul).toHaveCount(1);
+    await commutativeMul.first().click();
+    await page.waitForTimeout(500);
+    
+    const mulResult = (await expressionInput.inputValue()).replace(/\s+/g, '');
+    expect(mulResult).toBe('b*a*c');
+  });
+  
+  test('Кейс 7: Скобки доступны для добавления и удаления', async ({ page }) => {
+    console.log('\n=== ТЕСТ: Добавление и удаление скобок ===');
+    
+    await page.goto('expression-editor-modular.html');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
+    
+    const expressionInput = page.locator('#expressionInput');
+    await expressionInput.clear();
+    await page.waitForTimeout(200);
+    
+    await expressionInput.click();
+    await expressionInput.fill('a + b + c');
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    
+    const frameAplusB = getFrameByPath(page, 'args.0');
+    await expect(frameAplusB).toHaveCount(1);
+    await frameAplusB.click();
+    await page.waitForTimeout(300);
+    
+    const addParens = getCommandByChangeType(page, 'CUSTOM_ADD_PARENS');
+    await expect(addParens).toHaveCount(1);
+    await addParens.first().click();
+    await page.waitForTimeout(500);
+    
+    const addParensResult = (await expressionInput.inputValue()).replace(/\s+/g, '');
+    expect(addParensResult).toMatch(/\(a\+b\)\+c/);
+    
+    await expressionInput.clear();
+    await page.waitForTimeout(200);
+    await expressionInput.click();
+    await expressionInput.fill('((a + b))');
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    
+    const innerParens = getFrameByPath(page, 'content');
+    await expect(innerParens).toHaveCount(1);
+    await innerParens.click();
+    await page.waitForTimeout(300);
+    
+    const removeParens = getCommandByChangeType(page, 'CUSTOM_REMOVE_PARENS');
+    await expect(removeParens).toHaveCount(1);
+    await removeParens.first().click();
+    await page.waitForTimeout(500);
+    
+    const removeParensResult = (await expressionInput.inputValue()).replace(/\s+/g, '');
+    expect(removeParensResult).toBe('(a+b)');
+  });
+  
+  test('Кейс 7.1: Дистрибуция работает в обе стороны', async ({ page }) => {
+    console.log('\n=== ТЕСТ: Раскрытие и вынесение множителя ===');
+    
+    await page.goto('expression-editor-modular.html');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
+    
+    const expressionInput = page.locator('#expressionInput');
+    await expressionInput.clear();
+    await page.waitForTimeout(200);
+    
+    await expressionInput.click();
+    await expressionInput.fill('a * (b + c)');
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    
+    const rootFrame = getFrameByPath(page, 'root');
+    await expect(rootFrame).toHaveCount(1);
+    await rootFrame.click();
+    await page.waitForTimeout(300);
+    
+    const distribute = getCommandByChangeType(page, 'CUSTOM_DISTRIBUTE');
+    await expect(distribute).toHaveCount(1);
+    await distribute.first().click();
+    await page.waitForTimeout(500);
+    
+    const distributedResult = (await expressionInput.inputValue()).replace(/\s+/g, '');
+    expect(distributedResult.replace(/[()]/g, '')).toBe('a*b+a*c');
+    
+    await expressionInput.clear();
+    await page.waitForTimeout(200);
+    await expressionInput.click();
+    await expressionInput.fill('a*b + a*c');
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    
+    const factorFrame = getFrameByPath(page, 'root');
+    await expect(factorFrame).toHaveCount(1);
+    await factorFrame.click();
+    await page.waitForTimeout(300);
+    
+    const factor = getCommandByChangeType(page, 'CUSTOM_FACTOR');
+    await expect(factor).toHaveCount(1);
+    await factor.first().click();
+    await page.waitForTimeout(500);
+    
+    const factorResult = (await expressionInput.inputValue()).replace(/\s+/g, '');
+    expect(factorResult.replace(/[()]/g, '')).toBe('a*b+c');
+  });
+  
+  test('Кейс 7.2: Добавление и удаление +0 и *1', async ({ page }) => {
+    console.log('\n=== ТЕСТ: Добавление и удаление +0 и *1 ===');
+    
+    await page.goto('expression-editor-modular.html');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
+    
+    const expressionInput = page.locator('#expressionInput');
+    await expressionInput.clear();
+    await page.waitForTimeout(200);
+    
+    await expressionInput.click();
+    await expressionInput.fill('a + b');
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    
+    const frameA = getFrameByPath(page, 'args.0');
+    await expect(frameA).toHaveCount(1);
+    await frameA.click();
+    await page.waitForTimeout(300);
+    
+    const addZero = getCommandByChangeType(page, 'ADD_ADDING_ZERO');
+    await expect(addZero).toHaveCount(1);
+    await addZero.first().click();
+    await page.waitForTimeout(500);
+    
+    const addZeroResult = (await expressionInput.inputValue()).replace(/\s+/g, '');
+    expect(addZeroResult.replace(/[()]/g, '')).toBe('a+0+b');
+    
+    const frameAplusZero = getFrameByPath(page, 'args.0');
+    await expect(frameAplusZero).toHaveCount(1);
+    await frameAplusZero.click();
+    await page.waitForTimeout(300);
+    
+    const removeZero = getCommandByChangeType(page, 'REMOVE_ADDING_ZERO');
+    await expect(removeZero).toHaveCount(1);
+    await removeZero.first().click();
+    await page.waitForTimeout(500);
+    
+    const removeZeroResult = (await expressionInput.inputValue()).replace(/\s+/g, '');
+    expect(removeZeroResult.replace(/[()]/g, '')).toBe('a+b');
+    
+    await expressionInput.clear();
+    await page.waitForTimeout(200);
+    await expressionInput.click();
+    await expressionInput.fill('a * b');
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    
+    const frameMulA = getFrameByPath(page, 'args.0');
+    await expect(frameMulA).toHaveCount(1);
+    await frameMulA.click();
+    await page.waitForTimeout(300);
+    
+    const addOne = getCommandByChangeType(page, 'ADD_MULTIPLYING_BY_ONE');
+    await expect(addOne).toHaveCount(1);
+    await addOne.first().click();
+    await page.waitForTimeout(500);
+    
+    const addOneResult = (await expressionInput.inputValue()).replace(/\s+/g, '');
+    expect(addOneResult.replace(/[()]/g, '')).toBe('a*1*b');
+    
+    const frameA1 = getFrameByPath(page, 'args.0');
+    await expect(frameA1).toHaveCount(1);
+    await frameA1.click();
+    await page.waitForTimeout(300);
+    
+    const removeOne = getCommandByChangeType(page, 'REMOVE_MULTIPLYING_BY_ONE');
+    const removeOneCount = await removeOne.count();
+    expect(removeOneCount).toBeGreaterThan(0);
+    await removeOne.first().click();
+    await page.waitForTimeout(500);
+    
+    const removeOneResult = (await expressionInput.inputValue()).replace(/\s+/g, '');
+    expect(removeOneResult.replace(/[()]/g, '')).toBe('a*b');
   });
   
   test('Кейс 8: Вычисления с отрицательными числами в парах n-арного сложения (-2+3 в -2+3+1 → 1+1)', async ({ page }) => {

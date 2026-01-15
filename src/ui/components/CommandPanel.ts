@@ -149,6 +149,10 @@ export class CommandPanel {
       const parts = operation.id.split(':');
       return parts[1] || '';
     }
+    if (operation.id.startsWith('custom:')) {
+      const parts = operation.id.split(':');
+      return parts[1] || '';
+    }
     return '';
   }
 }

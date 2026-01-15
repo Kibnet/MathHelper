@@ -20,6 +20,9 @@ type EquationSplit = {
 };
 
 const COMPARATORS = ['<=', '>=', '=', '<', '>'];
+const EQUIVALENCE_VALUES = [-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3, 4, 5, 10, -10, 0.1, -0.1, 100];
+const EQUIVALENCE_MIN_VALID = 6;
+const EQUIVALENCE_TOLERANCE = 1e-9;
 
 const CATEGORY_ORDER = [
   'Арифметика',
@@ -117,6 +120,14 @@ const CHANGE_TYPE_CATEGORY: Record<string, string> = {
   FACTOR_PERFECT_SQUARE: 'Преобразования',
   FACTOR_SUM_PRODUCT_RULE: 'Преобразования',
   BREAK_UP_TERM: 'Преобразования'
+  ,
+  CUSTOM_COMMUTATIVE: 'Преобразования',
+  CUSTOM_DISTRIBUTE: 'Преобразования',
+  CUSTOM_FACTOR: 'Преобразования',
+  CUSTOM_ADD_PARENS: 'Преобразования',
+  CUSTOM_REMOVE_PARENS: 'Преобразования',
+  ADD_ADDING_ZERO: 'Преобразования',
+  ADD_MULTIPLYING_BY_ONE: 'Преобразования'
 };
 
 const CHANGE_TYPE_ORDER: Record<string, number> = (() => {
@@ -190,7 +201,14 @@ const CHANGE_TYPE_ORDER: Record<string, number> = (() => {
       'UNARY_MINUS_TO_NEGATIVE_ONE',
       'MULTIPLY_COEFFICIENTS',
       'MULTIPLY_BY_INVERSE',
-      'SIMPLIFY_DIVISION'
+      'SIMPLIFY_DIVISION',
+      'CUSTOM_COMMUTATIVE',
+      'CUSTOM_DISTRIBUTE',
+      'CUSTOM_FACTOR',
+      'CUSTOM_ADD_PARENS',
+      'CUSTOM_REMOVE_PARENS',
+      'ADD_ADDING_ZERO',
+      'ADD_MULTIPLYING_BY_ONE'
     ]],
     ['Функции', [
       'ABSOLUTE_VALUE'
@@ -300,7 +318,14 @@ const CHANGE_TYPE_DESCRIPTION: Record<string, string> = {
   FACTOR_DIFFERENCE_OF_SQUARES: 'Разложить разность квадратов.',
   FACTOR_PERFECT_SQUARE: 'Разложить полный квадрат.',
   FACTOR_SUM_PRODUCT_RULE: 'Разложить по правилу суммы и произведения.',
-  BREAK_UP_TERM: 'Разбить член на сумму.'
+  BREAK_UP_TERM: 'Разбить член на сумму.',
+  CUSTOM_COMMUTATIVE: 'Поменять местами слагаемые или множители.',
+  CUSTOM_DISTRIBUTE: 'Распределить множитель по сумме.',
+  CUSTOM_FACTOR: 'Вынести общий множитель за скобки.',
+  CUSTOM_ADD_PARENS: 'Добавить скобки вокруг выражения.',
+  CUSTOM_REMOVE_PARENS: 'Убрать один уровень скобок.',
+  ADD_ADDING_ZERO: 'Добавить нулевое слагаемое.',
+  ADD_MULTIPLYING_BY_ONE: 'Добавить множитель 1.'
 };
 
 const SOLVE_ASSUMPTIONS: Record<string, string[]> = {
@@ -385,15 +410,17 @@ export class MathStepsEngine {
         const sideExpression = side === 'left' ? equation.left : equation.right;
         const sidePath = selectionPath.slice(1) as MathStepsPath;
         operations.push(...this.listSimplifyOps(sideExpression, sidePath, selectionPath));
+        operations.push(...this.listCustomOps(sideExpression, sidePath, selectionPath));
       } else if (selectionPath.length === 0) {
         operations.push(...this.listSolveOps(expression));
       }
 
-      return this.sortOperations(operations);
+      return this.sortOperations(this.dedupeOperations(operations));
     }
 
     operations.push(...this.listSimplifyOps(expression, selectionPath, selectionPath));
-    return this.sortOperations(operations);
+    operations.push(...this.listCustomOps(expression, selectionPath, selectionPath));
+    return this.sortOperations(this.dedupeOperations(operations));
   }
 
   /**
@@ -401,6 +428,10 @@ export class MathStepsEngine {
    */
   apply(expression: string, selectionPath: MathStepsPath, operationId: string): MathStepsTransformPreview {
     const equation = splitEquation(expression);
+
+    if (operationId.startsWith('custom:')) {
+      return this.applyCustomOperation(expression, selectionPath, operationId);
+    }
 
     if (equation && operationId.startsWith('solve:')) {
       return this.applySolveOperation(expression, operationId);
@@ -448,7 +479,7 @@ export class MathStepsEngine {
       { dedupe: 'byId' }
     ) as MathStepsTransform[];
 
-    return transforms.map((transform) => {
+    const operations = transforms.map((transform) => {
       const changeType = transform.changeType;
       const category = this.getCategory(changeType);
       return {
@@ -462,6 +493,8 @@ export class MathStepsEngine {
         transform
       };
     });
+
+    return this.filterOperationsByEquivalence(expression, operations);
   }
 
   private listSolveOps(expression: string): MathStepsOperation[] {
@@ -476,7 +509,7 @@ export class MathStepsEngine {
     const id = `solve:${changeType}:${hashString(preview)}`;
     const assumptions = SOLVE_ASSUMPTIONS[changeType];
 
-    return [{
+    const operations = [{
       id,
       name: changeType,
       preview,
@@ -486,6 +519,247 @@ export class MathStepsEngine {
       assumptions,
       selectionPath: []
     }];
+
+    return this.filterOperationsByEquivalence(expression, operations);
+  }
+
+  private listCustomOps(
+    expression: string,
+    selectionPath: MathStepsPath,
+    fullPath: MathStepsPath
+  ): MathStepsOperation[] {
+    const rootNode = this.parseMathjsNode(expression);
+    if (!rootNode) {
+      return [];
+    }
+
+    const targetNode = this.getNodeAtPath(rootNode, selectionPath);
+    if (!targetNode) {
+      return [];
+    }
+
+    const operations: MathStepsOperation[] = [];
+
+    const addOperation = (changeType: string, name: string, description: string, newNode: MathStepsNode) => {
+      const newRoot = this.replaceNodeAtPath(rootNode, selectionPath, newNode);
+      const preview = this.stringify(newRoot);
+
+      operations.push({
+        id: `custom:${changeType}:${hashString(preview)}`,
+        name,
+        preview,
+        category: this.getCategory(changeType),
+        order: this.getOrder(changeType),
+        description,
+        selectionPath: fullPath
+      });
+    };
+
+    const operator = this.getOperatorNode(targetNode);
+    if (operator) {
+      const args = operator.args || [];
+      if ((operator.op === '+' || operator.op === '*') && args.length === 2) {
+        const swapped = this.cloneMathjsNode(operator);
+        swapped.args = [this.cloneMathjsNode(args[1]), this.cloneMathjsNode(args[0])];
+        const name = operator.op === '+' ? 'Поменять местами слагаемые' : 'Поменять местами множители';
+        const description = operator.op === '+' ? 'Поменять местами слагаемые.' : 'Поменять местами множители.';
+        addOperation('CUSTOM_COMMUTATIVE', name, description, swapped);
+      }
+
+      if (operator.op === '*' && args.length === 2) {
+        const distribute = this.buildDistributeNode(args[0], args[1]);
+        if (distribute) {
+          addOperation('CUSTOM_DISTRIBUTE', 'Раскрыть скобки', this.getDescription('CUSTOM_DISTRIBUTE'), distribute);
+        }
+      }
+
+      if (operator.op === '+' && args.length === 2) {
+        const factor = this.buildFactorNode(args[0], args[1]);
+        if (factor) {
+          addOperation('CUSTOM_FACTOR', 'Вынести общий множитель', this.getDescription('CUSTOM_FACTOR'), factor);
+        }
+      }
+
+      if (operator.op === '+' && args.length === 2) {
+        const withoutZero = this.removeNeutralElement(operator, 0);
+        if (withoutZero) {
+          addOperation('REMOVE_ADDING_ZERO', 'Убрать +0', this.getDescription('REMOVE_ADDING_ZERO'), withoutZero);
+        }
+      }
+
+      if (operator.op === '*' && args.length === 2) {
+        const withoutOne = this.removeNeutralElement(operator, 1);
+        if (withoutOne) {
+          addOperation('REMOVE_MULTIPLYING_BY_ONE', 'Убрать *1', this.getDescription('REMOVE_MULTIPLYING_BY_ONE'), withoutOne);
+        }
+      }
+    }
+
+    const nodeText = targetNode.toString();
+    const addZeroNode = this.parseMathjsNode(`(${nodeText}) + 0`);
+    if (addZeroNode) {
+      addOperation('ADD_ADDING_ZERO', 'Добавить +0', this.getDescription('ADD_ADDING_ZERO'), addZeroNode);
+    }
+
+    const addOneNode = this.parseMathjsNode(`(${nodeText}) * 1`);
+    if (addOneNode) {
+      addOperation('ADD_MULTIPLYING_BY_ONE', 'Добавить *1', this.getDescription('ADD_MULTIPLYING_BY_ONE'), addOneNode);
+    }
+
+    const addParensNode = this.parseMathjsNode(`(${nodeText})`);
+    if (addParensNode) {
+      addOperation('CUSTOM_ADD_PARENS', 'Добавить скобки', this.getDescription('CUSTOM_ADD_PARENS'), addParensNode);
+    }
+
+    if (this.isParenthesisNode(targetNode) && targetNode.content) {
+      addOperation('CUSTOM_REMOVE_PARENS', 'Убрать скобки', this.getDescription('CUSTOM_REMOVE_PARENS'), this.cloneMathjsNode(targetNode.content));
+    }
+
+    return this.filterOperationsByEquivalence(expression, operations);
+  }
+
+  private applyCustomOperation(expression: string, selectionPath: MathStepsPath, operationId: string): MathStepsTransformPreview {
+    const [, changeType] = operationId.split(':', 3);
+    if (!changeType) {
+      throw new Error('Неизвестное пользовательское преобразование');
+    }
+
+    const equation = splitEquation(expression);
+    if (equation) {
+      const side = selectionPath[0];
+      if (side === 'left' || side === 'right') {
+        const sideExpression = side === 'left' ? equation.left : equation.right;
+        const sidePath = selectionPath.slice(1) as MathStepsPath;
+        const result = this.applyCustomToExpression(sideExpression, sidePath, changeType);
+
+        const leftNode = mathjs.parse(this.normalizeExpression(equation.left)) as MathStepsNode;
+        const rightNode = mathjs.parse(this.normalizeExpression(equation.right)) as MathStepsNode;
+
+        const newLeft = side === 'left' ? result : leftNode;
+        const newRight = side === 'right' ? result : rightNode;
+
+        return {
+          oldNode: this.createEquationNode(leftNode, rightNode, equation.comparator),
+          newNode: this.createEquationNode(newLeft, newRight, equation.comparator),
+          changeType,
+          substeps: []
+        } as MathStepsTransformPreview;
+      }
+
+      throw new Error('Нельзя применить пользовательское преобразование к уравнению целиком');
+    }
+
+    const newNode = this.applyCustomToExpression(expression, selectionPath, changeType);
+    const oldNode = this.parse(expression) as MathStepsNode;
+
+    return {
+      oldNode,
+      newNode,
+      changeType,
+      substeps: []
+    } as MathStepsTransformPreview;
+  }
+
+  private applyCustomToExpression(expression: string, selectionPath: MathStepsPath, changeType: string): MathStepsNode {
+    const rootNode = this.parseMathjsNode(expression);
+    if (!rootNode) {
+      throw new Error('Не удалось разобрать выражение');
+    }
+
+    const targetNode = this.getNodeAtPath(rootNode, selectionPath);
+    if (!targetNode) {
+      throw new Error('Не удалось найти выбранный узел');
+    }
+
+    const operator = this.getOperatorNode(targetNode);
+    if (changeType === 'CUSTOM_COMMUTATIVE') {
+      if (!operator || !operator.args || operator.args.length !== 2 || (operator.op !== '+' && operator.op !== '*')) {
+        throw new Error('Коммутативность неприменима');
+      }
+      const swapped = this.cloneMathjsNode(operator);
+      swapped.args = [this.cloneMathjsNode(operator.args[1]), this.cloneMathjsNode(operator.args[0])];
+      return this.replaceNodeAtPath(rootNode, selectionPath, swapped);
+    }
+
+    if (changeType === 'CUSTOM_DISTRIBUTE') {
+      if (!operator || !operator.args || operator.args.length !== 2 || operator.op !== '*') {
+        throw new Error('Распределение неприменимо');
+      }
+      const distributed = this.buildDistributeNode(operator.args[0], operator.args[1]);
+      if (!distributed) {
+        throw new Error('Распределение неприменимо');
+      }
+      return this.replaceNodeAtPath(rootNode, selectionPath, distributed);
+    }
+
+    if (changeType === 'CUSTOM_FACTOR') {
+      if (!operator || !operator.args || operator.args.length !== 2 || operator.op !== '+') {
+        throw new Error('Вынесение множителя неприменимо');
+      }
+      const factored = this.buildFactorNode(operator.args[0], operator.args[1]);
+      if (!factored) {
+        throw new Error('Вынесение множителя неприменимо');
+      }
+      return this.replaceNodeAtPath(rootNode, selectionPath, factored);
+    }
+
+    if (changeType === 'CUSTOM_ADD_PARENS') {
+      const nodeText = targetNode.toString();
+      const parens = this.parseMathjsNode(`(${nodeText})`);
+      if (!parens) {
+        throw new Error('Нельзя добавить скобки');
+      }
+      return this.replaceNodeAtPath(rootNode, selectionPath, parens);
+    }
+
+    if (changeType === 'CUSTOM_REMOVE_PARENS') {
+      if (!this.isParenthesisNode(targetNode) || !targetNode.content) {
+        throw new Error('Нельзя убрать скобки');
+      }
+      return this.replaceNodeAtPath(rootNode, selectionPath, this.cloneMathjsNode(targetNode.content));
+    }
+
+    if (changeType === 'ADD_ADDING_ZERO') {
+      const nodeText = targetNode.toString();
+      const addZero = this.parseMathjsNode(`(${nodeText}) + 0`);
+      if (!addZero) {
+        throw new Error('Нельзя добавить +0');
+      }
+      return this.replaceNodeAtPath(rootNode, selectionPath, addZero);
+    }
+
+    if (changeType === 'ADD_MULTIPLYING_BY_ONE') {
+      const nodeText = targetNode.toString();
+      const addOne = this.parseMathjsNode(`(${nodeText}) * 1`);
+      if (!addOne) {
+        throw new Error('Нельзя добавить *1');
+      }
+      return this.replaceNodeAtPath(rootNode, selectionPath, addOne);
+    }
+
+    if (changeType === 'REMOVE_ADDING_ZERO') {
+      if (!operator || !operator.args || operator.args.length !== 2 || operator.op !== '+') {
+        throw new Error('Нельзя убрать +0');
+      }
+      const withoutZero = this.removeNeutralElement(operator, 0);
+      if (!withoutZero) {
+        throw new Error('Нельзя убрать +0');
+      }
+      return this.replaceNodeAtPath(rootNode, selectionPath, withoutZero);
+    }
+
+    if (changeType === 'REMOVE_MULTIPLYING_BY_ONE') {
+      if (!operator || !operator.args || operator.args.length !== 2 || operator.op !== '*') {
+        throw new Error('Нельзя убрать *1');
+      }
+      const withoutOne = this.removeNeutralElement(operator, 1);
+      if (!withoutOne) {
+        throw new Error('Нельзя убрать *1');
+      }
+      return this.replaceNodeAtPath(rootNode, selectionPath, withoutOne);
+    }
+
+    throw new Error('Неизвестное пользовательское преобразование');
   }
 
   private applySolveOperation(expression: string, operationId: string): MathStepsTransformPreview {
@@ -539,6 +813,458 @@ export class MathStepsEngine {
 
   private getDescription(changeType: string): string {
     return CHANGE_TYPE_DESCRIPTION[changeType] || 'Преобразовать выражение.';
+  }
+
+  private filterOperationsByEquivalence(expression: string, operations: MathStepsOperation[]): MathStepsOperation[] {
+    return operations.filter((operation) => {
+      const preview = operation.preview;
+      if (!preview) {
+        return false;
+      }
+      if (expression.trim() === preview.trim()) {
+        return false;
+      }
+      return this.isEquivalentExpression(expression, preview);
+    });
+  }
+
+  private dedupeOperations(operations: MathStepsOperation[]): MathStepsOperation[] {
+    const seen = new Set<string>();
+    const result: MathStepsOperation[] = [];
+
+    for (const operation of operations) {
+      const changeType = this.getOperationChangeType(operation);
+      const key = `${changeType}::${operation.preview}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      result.push(operation);
+    }
+
+    return result;
+  }
+
+  private getOperationChangeType(operation: MathStepsOperation): string {
+    if (operation.transform?.changeType) {
+      return operation.transform.changeType;
+    }
+    if (operation.id.startsWith('solve:')) {
+      const parts = operation.id.split(':');
+      return parts[1] || '';
+    }
+    if (operation.id.startsWith('custom:')) {
+      const parts = operation.id.split(':');
+      return parts[1] || '';
+    }
+    return '';
+  }
+
+  private isEquivalentExpression(original: string, candidate: string): boolean {
+    const originalEquation = splitEquation(original);
+    const candidateEquation = splitEquation(candidate);
+
+    if (originalEquation || candidateEquation) {
+      if (!originalEquation || !candidateEquation) {
+        return false;
+      }
+      return this.isEquivalentEquation(originalEquation, candidateEquation);
+    }
+
+    const variables = this.collectVariables(original);
+    const scopes = this.buildScopes(variables);
+    let validPoints = 0;
+
+    for (const scope of scopes) {
+      const left = this.evaluateExpression(original, scope);
+      const right = this.evaluateExpression(candidate, scope);
+
+      if (!left.valid && !right.valid) {
+        continue;
+      }
+      if (!left.valid || !right.valid) {
+        return false;
+      }
+      validPoints++;
+      if (!this.areValuesEquivalent(left.value, right.value)) {
+        return false;
+      }
+    }
+
+    return validPoints >= EQUIVALENCE_MIN_VALID;
+  }
+
+  private isEquivalentEquation(
+    original: { left: string; right: string; comparator: string },
+    candidate: { left: string; right: string; comparator: string }
+  ): boolean {
+    if (original.comparator !== candidate.comparator) {
+      return false;
+    }
+
+    const variables = Array.from(new Set([
+      ...this.collectVariables(original.left),
+      ...this.collectVariables(original.right),
+      ...this.collectVariables(candidate.left),
+      ...this.collectVariables(candidate.right)
+    ]));
+    const scopes = this.buildScopes(variables);
+    let validPoints = 0;
+
+    for (const scope of scopes) {
+      const originalResult = this.evaluateEquation(original.left, original.right, scope);
+      const candidateResult = this.evaluateEquation(candidate.left, candidate.right, scope);
+
+      if (!originalResult.valid && !candidateResult.valid) {
+        continue;
+      }
+      if (!originalResult.valid || !candidateResult.valid) {
+        return false;
+      }
+      validPoints++;
+      if (originalResult.value !== candidateResult.value) {
+        return false;
+      }
+    }
+
+    return validPoints >= EQUIVALENCE_MIN_VALID;
+  }
+
+  private evaluateEquation(left: string, right: string, scope: Record<string, number>): { valid: boolean; value: boolean } {
+    const leftEval = this.evaluateExpression(left, scope);
+    const rightEval = this.evaluateExpression(right, scope);
+    if (!leftEval.valid || !rightEval.valid) {
+      return { valid: false, value: false };
+    }
+    return { valid: true, value: this.areValuesEquivalent(leftEval.value, rightEval.value) };
+  }
+
+  private evaluateExpression(expression: string, scope: Record<string, number>): { valid: boolean; value: unknown } {
+    try {
+      const normalized = this.normalizeExpression(expression);
+      const compiled = mathjs.compile(normalized);
+      const evaluator = (compiled as { evaluate?: (scope: Record<string, number>) => unknown; eval?: (scope: Record<string, number>) => unknown });
+      const result = typeof evaluator.evaluate === 'function' ? evaluator.evaluate(scope) : evaluator.eval?.(scope);
+      if (typeof result === 'undefined') {
+        return { valid: false, value: null };
+      }
+      const normalizedValue = this.normalizeEvalResult(result);
+      if (!normalizedValue.valid) {
+        return { valid: false, value: null };
+      }
+      return { valid: true, value: normalizedValue.value };
+    } catch {
+      return { valid: false, value: null };
+    }
+  }
+
+  private normalizeEvalResult(result: unknown): { valid: boolean; value: unknown } {
+    if (typeof result === 'number') {
+      if (!Number.isFinite(result)) {
+        return { valid: false, value: null };
+      }
+      return { valid: true, value: result };
+    }
+
+    if (result && typeof result === 'object') {
+      if (this.isComplexValue(result)) {
+        return { valid: false, value: null };
+      }
+      if (mathjs.isMatrix(result)) {
+        const array = (result as { toArray: () => unknown[] }).toArray();
+        return { valid: true, value: array };
+      }
+      if (Array.isArray(result)) {
+        return { valid: true, value: result };
+      }
+      if (mathjs.isBigNumber(result)) {
+        const value = mathjs.number(result);
+        if (!Number.isFinite(value)) {
+          return { valid: false, value: null };
+        }
+        return { valid: true, value };
+      }
+    }
+
+    return { valid: false, value: null };
+  }
+
+  private areValuesEquivalent(a: unknown, b: unknown): boolean {
+    if (typeof a === 'number' && typeof b === 'number') {
+      const diff = Math.abs(a - b);
+      if (diff <= EQUIVALENCE_TOLERANCE) {
+        return true;
+      }
+      const scale = Math.max(Math.abs(a), Math.abs(b), 1);
+      return diff / scale <= EQUIVALENCE_TOLERANCE;
+    }
+
+    if (Array.isArray(a) && Array.isArray(b)) {
+      if (a.length !== b.length) {
+        return false;
+      }
+      for (let i = 0; i < a.length; i++) {
+        if (!this.areValuesEquivalent(a[i], b[i])) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    return a === b;
+  }
+
+  private isComplexValue(result: object): boolean {
+    return 'im' in result && 're' in result;
+  }
+
+  private collectVariables(expression: string): string[] {
+    const normalized = this.normalizeExpression(expression);
+    const node = this.parseMathjsNode(normalized);
+    const names = new Set<string>();
+
+    const walk = (current: MathStepsNode | undefined): void => {
+      if (!current) {
+        return;
+      }
+      if (current.type === 'SymbolNode' && current.name) {
+        if (this.isMathConstant(current.name)) {
+          return;
+        }
+        names.add(current.name);
+      }
+      if (current.content) {
+        walk(current.content);
+      }
+      if (current.args) {
+        current.args.forEach((child) => walk(child));
+      }
+    };
+
+    walk(node || undefined);
+    return Array.from(names);
+  }
+
+  private isMathConstant(name: string): boolean {
+    return typeof (mathjs as Record<string, unknown>)[name] === 'number';
+  }
+
+  private buildScopes(variables: string[]): Array<Record<string, number>> {
+    const scopes: Array<Record<string, number>> = [];
+    const values = EQUIVALENCE_VALUES;
+
+    for (let i = 0; i < values.length; i++) {
+      const scope: Record<string, number> = {};
+      variables.forEach((variable, index) => {
+        scope[variable] = values[(i + index) % values.length];
+      });
+      scopes.push(scope);
+    }
+
+    return scopes;
+  }
+
+  private parseMathjsNode(expression: string): MathStepsNode | null {
+    try {
+      return mathjs.parse(this.normalizeExpression(expression)) as MathStepsNode;
+    } catch {
+      return null;
+    }
+  }
+
+  private cloneMathjsNode(node: MathStepsNode): MathStepsNode {
+    const candidate = node as { clone?: () => MathStepsNode };
+    if (typeof candidate.clone === 'function') {
+      return candidate.clone();
+    }
+    return mathjs.parse(node.toString()) as MathStepsNode;
+  }
+
+  private getNodeAtPath(root: MathStepsNode, path: MathStepsPath): MathStepsNode | null {
+    let current: MathStepsNode | undefined = root;
+    let index = 0;
+
+    while (current && index < path.length) {
+      const segment = path[index];
+      if (segment === 'content') {
+        current = current.content;
+        index += 1;
+        continue;
+      }
+      if (segment === 'args') {
+        const argIndex = path[index + 1];
+        if (typeof argIndex !== 'number' || !current.args || !current.args[argIndex]) {
+          return null;
+        }
+        current = current.args[argIndex];
+        index += 2;
+        continue;
+      }
+      return null;
+    }
+
+    return current || null;
+  }
+
+  private replaceNodeAtPath(root: MathStepsNode, path: MathStepsPath, replacement: MathStepsNode): MathStepsNode {
+    if (path.length === 0) {
+      return replacement;
+    }
+
+    const [segment, next] = path;
+    if (segment === 'content') {
+      const clone = this.cloneMathjsNode(root);
+      clone.content = root.content ? this.replaceNodeAtPath(root.content, path.slice(1), replacement) : root.content;
+      return clone;
+    }
+    if (segment === 'args') {
+      if (typeof next !== 'number' || !root.args) {
+        return root;
+      }
+      const clone = this.cloneMathjsNode(root);
+      clone.args = root.args.map((arg, index) => {
+        if (index === next) {
+          return this.replaceNodeAtPath(arg, path.slice(2), replacement);
+        }
+        return this.cloneMathjsNode(arg);
+      });
+      return clone;
+    }
+
+    return root;
+  }
+
+  private getOperatorNode(node: MathStepsNode): MathStepsNode & { type: 'OperatorNode'; op: string; args: MathStepsNode[] } | null {
+    if (node.type === 'OperatorNode' && node.op && node.args) {
+      return node as MathStepsNode & { type: 'OperatorNode'; op: string; args: MathStepsNode[] };
+    }
+    return null;
+  }
+
+  private buildDistributeNode(
+    left: MathStepsNode,
+    right: MathStepsNode
+  ): MathStepsNode | null {
+    const leftAdd = this.getAddNode(left);
+    const rightAdd = this.getAddNode(right);
+    const leftIsAdd = Boolean(leftAdd);
+    const rightIsAdd = Boolean(rightAdd);
+    if (leftIsAdd === rightIsAdd) {
+      return null;
+    }
+
+    const sumNode = leftIsAdd ? leftAdd! : rightAdd!;
+    const factorNode = leftIsAdd ? right : left;
+    const factorOnLeft = !leftIsAdd;
+
+    if (!sumNode.args || sumNode.args.length !== 2) {
+      return null;
+    }
+
+    const [first, second] = sumNode.args;
+    const factorText = factorNode.toString();
+    const firstText = first.toString();
+    const secondText = second.toString();
+
+    const firstTerm = factorOnLeft
+      ? `(${factorText}) * (${firstText})`
+      : `(${firstText}) * (${factorText})`;
+    const secondTerm = factorOnLeft
+      ? `(${factorText}) * (${secondText})`
+      : `(${secondText}) * (${factorText})`;
+
+    return this.parseMathjsNode(`${firstTerm} + ${secondTerm}`);
+  }
+
+  private buildFactorNode(
+    left: MathStepsNode,
+    right: MathStepsNode
+  ): MathStepsNode | null {
+    const leftFactors = this.extractBinaryFactors(left);
+    const rightFactors = this.extractBinaryFactors(right);
+    if (!leftFactors || !rightFactors) {
+      return null;
+    }
+
+    const matches = this.findCommonFactor(leftFactors, rightFactors);
+    if (!matches) {
+      return null;
+    }
+
+    const { factor, leftRemainder, rightRemainder, position } = matches;
+    const sumText = `(${leftRemainder.toString()} + ${rightRemainder.toString()})`;
+    const factorText = `(${factor.toString()})`;
+
+    const result = position === 'left'
+      ? `${factorText} * ${sumText}`
+      : `${sumText} * ${factorText}`;
+
+    return this.parseMathjsNode(result);
+  }
+
+  private extractBinaryFactors(node: MathStepsNode): { left: MathStepsNode; right: MathStepsNode } | null {
+    if (node.type === 'OperatorNode' && node.op === '*' && node.args && node.args.length === 2) {
+      return { left: node.args[0], right: node.args[1] };
+    }
+    return null;
+  }
+
+  private findCommonFactor(
+    left: { left: MathStepsNode; right: MathStepsNode },
+    right: { left: MathStepsNode; right: MathStepsNode }
+  ): { factor: MathStepsNode; leftRemainder: MathStepsNode; rightRemainder: MathStepsNode; position: 'left' | 'right' } | null {
+    const leftLeft = left.left.toString();
+    const leftRight = left.right.toString();
+    const rightLeft = right.left.toString();
+    const rightRight = right.right.toString();
+
+    if (leftLeft === rightLeft) {
+      return { factor: left.left, leftRemainder: left.right, rightRemainder: right.right, position: 'left' };
+    }
+    if (leftRight === rightRight) {
+      return { factor: left.right, leftRemainder: left.left, rightRemainder: right.left, position: 'right' };
+    }
+    if (leftLeft === rightRight) {
+      return { factor: left.left, leftRemainder: left.right, rightRemainder: right.left, position: 'right' };
+    }
+    if (leftRight === rightLeft) {
+      return { factor: left.right, leftRemainder: left.left, rightRemainder: right.right, position: 'right' };
+    }
+
+    return null;
+  }
+
+  private removeNeutralElement(operator: MathStepsNode & { op: string; args: MathStepsNode[] }, value: number): MathStepsNode | null {
+    const [left, right] = operator.args;
+    if (this.isConstantNode(left, value)) {
+      return this.cloneMathjsNode(right);
+    }
+    if (this.isConstantNode(right, value)) {
+      return this.cloneMathjsNode(left);
+    }
+    return null;
+  }
+
+  private isConstantNode(node: MathStepsNode, value: number): boolean {
+    return node.type === 'ConstantNode' && Number(node.value) === value;
+  }
+
+  private isAddNode(node: MathStepsNode): node is MathStepsNode & { op: string; args: MathStepsNode[] } {
+    return node.type === 'OperatorNode' && node.op === '+' && Array.isArray(node.args);
+  }
+
+  private isParenthesisNode(node: MathStepsNode): node is MathStepsNode & { content: MathStepsNode } {
+    return node.type === 'ParenthesisNode';
+  }
+
+  private getAddNode(node: MathStepsNode): (MathStepsNode & { op: string; args: MathStepsNode[] }) | null {
+    if (this.isAddNode(node)) {
+      return node;
+    }
+    if (this.isParenthesisNode(node) && node.content && this.isAddNode(node.content)) {
+      return node.content;
+    }
+    return null;
   }
 
   private createEquationNode(leftNode: MathStepsNode, rightNode: MathStepsNode, comparator: string): EquationNode {
