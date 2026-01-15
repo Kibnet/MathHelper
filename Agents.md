@@ -98,7 +98,7 @@
    - Edge cases специфичные для функции
 3. Запустить тесты: `npm test`
 4. Убедиться что все тесты проходят
-5. Если тесты для UI - дополнительно запустить E2E: `npm run test:e2e`
+5. Если тесты для UI - дополнительно запустить E2E: `npm run test:e2e:with-dev`
 
 **Пример:** При добавлении новой функции парсинга:
 ```typescript
@@ -183,61 +183,15 @@ npm run coverage      # С отчетом покрытия
 
 #### E2E тесты (Playwright)
 **Где:** `e2e/*.spec.ts`
-**Когда использовать:**
-- Тестирование пользовательских сценариев
-- Проверка UI взаимодействий
-- Интеграционное тестирование фронтенда
-- Проверка консольных логов браузера
+**Критически важно:** запускать через автосервер.
 
-**Критически важно:** E2E тесты требуют запущенного dev сервера!
-
-**Команды:**
+**Рекомендуемый запуск:**
 ```bash
-# Шаг 1: Запустить dev сервер (в первом терминале)
-npm run dev -- --host 0.0.0.0 --port 8000
-# Дождаться: ✓ VITE ready... ➜ Local: http://localhost:8000/
-
-# Шаг 2: Запустить тесты (во втором терминале)
-npm run test:e2e         # Headless режим
-npm run test:e2e:headed  # С видимым браузером
-npm run test:e2e:ui      # Интерактивный режим
-npm run test:e2e:debug   # Режим отладки
+npm run test:e2e:with-dev
 ```
 
-**Переменная окружения для baseURL (рекомендуется при нестандартном base path):**
-```bash
-# По умолчанию baseURL = http://localhost:8000/MathHelper/
-# Можно переопределить для другой базы:
-E2E_BASE_URL="http://localhost:8000/MathHelper/" npm run test:e2e
-```
+Подробные инструкции, переменные окружения и отладка: см. [e2e/README.md](./e2e/README.md).
 
-**PowerShell:** Для корректного вывода используйте:
-```bash
-$env:FORCE_COLOR=1; npx playwright test --reporter=list
-# Или:
-.\run-e2e-tests.ps1
-```
-
-**Типичные проблемы:**
-- `ERR_CONNECTION_REFUSED` → Запустите `npm run dev`
-- Нет вывода в PowerShell → Используйте `$env:FORCE_COLOR=1`
-- Элементы не найдены → Проверьте селекторы (#expressionInput, #commandsPanel, #expressionContainer)
-- Ошибка toHaveTitle → Используйте "Преобразователь выражений"
-
-**Когда писать E2E тесты:**
-- Добавлена новая UI функциональность
-- Изменен пользовательский интерфейс
-- Нужно проверить взаимодействие компонентов
-- Проверка работы в реальном браузере
-
-**Отладка падающих E2E тестов:**
-1. Запустить с видимым браузером: `npm run test:e2e:headed`
-2. Использовать режим отладки: `npm run test:e2e:debug`
-3. Проверить скриншоты в `test-results/`
-4. Просмотреть логи в `test-output.log`
-5. Открыть HTML отчет: `npm run test:e2e:report`
-
-Подробнее см. [e2e/README.md](./e2e/README.md)
 
 ### 5. Проверка перед коммитом
 
@@ -254,22 +208,11 @@ npm run coverage
 npm run build
 
 # 4. Если были изменения в UI - запустить E2E
-# Шаг 1: Запустить dev сервер (КРИТИЧНО!)
-npm run dev  # в отдельном терминале, дождаться ✓ VITE ready
+npm run test:e2e:with-dev
 
-# Шаг 2: Запустить тесты
-npm run test:e2e  # во втором терминале
-
-# PowerShell: Для корректного вывода
-$env:FORCE_COLOR=1; npx playwright test --reporter=list
-# Или:
-.\run-e2e-tests.ps1
-
-# Анализ результатов
-type test-output.log         # логи выполнения
-npm run test:e2e:report      # HTML отчет
-dir test-results             # скриншоты и видео
+# Подробности и отладка: e2e/README.md
 ```
+
 
 **Все должно быть зеленым перед коммитом!**
 
@@ -339,27 +282,7 @@ test('пользователь может ввести выражение', asyn
 
 **Если E2E тест упал:**
 
-1. **Прочитать сообщение об ошибке**
-2. **Проверить типичные проблемы:**
-   - `ERR_CONNECTION_REFUSED` → Запустите `npm run dev`
-   - `toHaveTitle failed` → Заголовок "Преобразователь выражений"
-   - Элемент не найден → Правильные ID: #expressionInput, #commandsPanel, #expressionContainer, #buildBtn, #clearBtn
-3. **Запустить с видимым браузером:**
-   ```bash
-   npm run test:e2e:headed
-   ```
-4. **Использовать режим отладки:**
-   ```bash
-   npm run test:e2e:debug
-   ```
-5. **Просмотреть артефакты:**
-   - Скриншоты в `test-results/`
-   - Логи в `test-output.log`
-   - HTML отчет: `npm run test:e2e:report`
-6. **Проверить сервер:**
-   ```bash
-   curl http://localhost:8000/expression-editor-modular.html
-   ```
+Смотри диагностику и советы в [e2e/README.md](./e2e/README.md).
 
 ### 9. Continuous Integration
 

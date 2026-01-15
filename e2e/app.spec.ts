@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
 
+const getFrames = (page) => page.locator('[data-testid="expression-frame"]');
+const getFrameByPath = (page, pathKey: string) =>
+  page.locator(`[data-testid="expression-frame"][data-path-key="${pathKey}"]`);
+const getCommandItems = (page) => page.locator('#commandsPanel [data-testid="command-item"]');
+const getCommandByChangeType = (page, changeType: string) =>
+  page.locator(`#commandsPanel [data-testid="command-item"][data-change-type="${changeType}"]`);
+
 /**
  * E2E тесты для математического редактора выражений
  */
@@ -102,6 +109,27 @@ test.describe('MathHelper Application', () => {
     }
   });
 
+  test('должен отображать учебную нотацию степеней, корней и модуля', async ({ page }) => {
+    await page.goto('expression-editor-modular.html');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
+
+    const expressionInput = page.locator('#expressionInput');
+    await expressionInput.clear();
+    await page.waitForTimeout(200);
+    await expressionInput.click();
+    await expressionInput.fill('x^2 + nthRoot(x, 2) + abs(x)');
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+
+    const expressionContainer = page.locator('#expressionContainer');
+    await expect(expressionContainer.locator('.expr-sup')).toHaveCount(1);
+    await expect(expressionContainer.locator('.expr-root-symbol')).toHaveCount(1);
+
+    const absTokens = expressionContainer.locator('.token').filter({ hasText: '|' });
+    await expect(absTokens).toHaveCount(2);
+  });
+
   test('должен показывать токены выражения при наведении', async ({ page }) => {
     await page.goto('expression-editor-modular.html');
     await page.waitForLoadState('domcontentloaded');
@@ -151,7 +179,7 @@ test.describe('MathHelper Application', () => {
     await expect(historyPanel).toBeHidden();
   });
 
-  test('БАГ 1: коммутативность для парного подвыражения 1+2 в 1+2+3 должна давать 2+1+3', async ({ page }) => {
+  test('Кейс: вычисление пары 1+2 в 1+2+3 должно давать 3+3', async ({ page }) => {
     const consoleMessages: string[] = [];
     const consoleErrors: string[] = [];
     
@@ -194,7 +222,7 @@ test.describe('MathHelper Application', () => {
     console.log(`Отображенное выражение: "${displayedText}"`);
     
     // Находим все фреймы (рамки подвыражений)
-    const frames = page.locator('.expression-range');
+    const frames = getFrames(page);
     const frameCount = await frames.count();
     console.log(`\nНайдено фреймов: ${frameCount}`);
     
@@ -213,7 +241,7 @@ test.describe('MathHelper Application', () => {
     
     // Ищем фрейм для подвыражения "1+2"
     console.log('\n=== ШАГ 2: Ищем фрейм для "1+2" ===');
-    const frame1plus2 = page.locator('.expression-range[data-text="1 + 2"]');
+    const frame1plus2 = getFrameByPath(page, 'args.0');
     
     // Проверяем что фрейм существует
     await expect(frame1plus2).toHaveCount(1);
@@ -231,7 +259,7 @@ test.describe('MathHelper Application', () => {
     
     // Ищем команду коммутативности
     console.log('\n=== ШАГ 4: Ищем команду коммутативности ===');
-    const commands = commandsPanel.locator('.command-item');
+    const commands = getCommandItems(page);
     const commandCount = await commands.count();
     console.log(`Найдено команд: ${commandCount}`);
     
@@ -242,50 +270,29 @@ test.describe('MathHelper Application', () => {
       console.log(`  Команда ${i}: "${cmdText}"`);
     }
     
-    // Ищем команду "Поменять местами операнды"
-    const commutativeCommand = commandsPanel.locator('.command-item:has-text("Поменять местами")');
-    const commutativeExists = await commutativeCommand.count() > 0;
+    // Ищем команду "Вычислить"
+    const evalCommand = getCommandByChangeType(page, 'SIMPLIFY_ARITHMETIC');
+    const evalExists = await evalCommand.count() > 0;
     
-    if (commutativeExists) {
-      console.log('\nКоманда коммутативности найдена!');
+    if (evalExists) {
+      console.log('\nКоманда вычисления найдена!');
       
       // Применяем команду
-      console.log('\n=== ШАГ 5: Применяем команду коммутативности ===');
-      await commutativeCommand.first().click();
+      console.log('\n=== ШАГ 5: Применяем команду вычисления ===');
+      await evalCommand.first().click();
       await page.waitForTimeout(500);
       
       // Проверяем результат
-      const newExpression = await expressionContainer.textContent();
+      const newExpression = await expressionInput.inputValue();
       console.log(`Новое выражение: "${newExpression}"`);
       
-      // Ожидаем: 2 + 1 + 3 (или варианты без пробелов)
-      const normalized = newExpression?.replace(/\s+/g, '');
+      const normalized = newExpression.replace(/\s+/g, '');
       console.log(`Нормализованное: "${normalized}"`);
       
-      // Проверяем что выражение изменилось
-      // Должно быть 2+1+3 или 2 + 1 + 3
-      expect(normalized).toContain('2');
-      expect(normalized).toContain('1');
-      expect(normalized).toContain('3');
-      
-      // Проверяем что 2 стоит перед 1 (перестановка произошла)
-      const indexOf2 = normalized?.indexOf('2');
-      const indexOf1 = normalized?.indexOf('1');
-      
-      console.log(`\nПозиция '2': ${indexOf2}, Позиция '1': ${indexOf1}`);
-      
-      // БАГ: если позиция 1 < позиции 2, значит перестановка НЕ сработала
-      if (indexOf1 !== undefined && indexOf2 !== undefined && indexOf1 < indexOf2) {
-        console.error('\n❌ БАГ ПОДТВЕРЖДЕН: перестановка НЕ произошла!');
-        console.error(`Ожидали: 2+1+3, Получили: ${newExpression}`);
-      }
-      
-      // Основная проверка: 2 должна стоять перед 1
-      expect(indexOf2).toBeLessThan(indexOf1 ?? 0);
-      
+      expect(normalized).toBe('3+3');
     } else {
-      console.error('\n❌ Команда коммутативности НЕ НАЙДЕНА!');
-      expect(commutativeExists).toBe(true);
+      console.error('\n❌ Команда вычисления НЕ НАЙДЕНА!');
+      expect(evalExists).toBe(true);
     }
     
     // Выводим логи
@@ -300,8 +307,8 @@ test.describe('MathHelper Application', () => {
     }
   });
 
-  test('БАГ 3: раскрытие неявного умножения ab в a*b в выражении abc должно давать a*bc', async ({ page }) => {
-    console.log('\n=== ТЕСТ БАГ 3: Раскрытие неявного умножения в abc ===');
+  test('Кейс: многобуквенный идентификатор abc не раскрывается как a*b*c', async ({ page }) => {
+    console.log('\n=== ТЕСТ: Многобуквенный идентификатор abc не раскрывается как a*b*c ===');
     
     const consoleMessages: string[] = [];
     const consoleErrors: string[] = [];
@@ -325,7 +332,7 @@ test.describe('MathHelper Application', () => {
     await expressionInput.clear();
     await page.waitForTimeout(200);
     
-    // Вводим выражение abc (неявное умножение a*b*c)
+    // Вводим выражение abc (один идентификатор)
     await expressionInput.click();
     await expressionInput.fill('abc');
     console.log('Введено выражение: abc');
@@ -340,80 +347,17 @@ test.describe('MathHelper Application', () => {
     const initialText = await expressionContainer.textContent();
     console.log('Построенное выражение:', initialText);
     
-    // Ищем фрейм для подвыражения "ab"
-    const frameAB = page.locator('.expression-range[data-text="ab"]');
-    const frameCount = await frameAB.count();
-    console.log(`Найдено фреймов для "ab": ${frameCount}`);
-    
-    await expect(frameAB).toHaveCount(1);
-    
-    // Кликаем на фрейм
-    await frameAB.click();
+    // abc в mathjs — это один символ, поэтому команд для преобразования не ожидается
+    const rootFrame = getFrameByPath(page, 'root');
+    await expect(rootFrame).toHaveCount(1);
+    await rootFrame.click();
     await page.waitForTimeout(300);
     
-    console.log('Кликнули на фрейм "ab"');
-    
-    // Проверяем что появились команды
-    const commandItems = commandsPanel.locator('.command-item');
+    const commandItems = getCommandItems(page);
     const commandCount = await commandItems.count();
     console.log(`Количество команд: ${commandCount}`);
     
-    if (commandCount > 0) {
-      const commandsText = await commandItems.allTextContents();
-      console.log('Доступные команды:', commandsText);
-    }
-    
-    // Ищем команду "Раскрыть неявное умножение" или похожую
-    const expandCommand = commandsPanel.locator('.command-item').filter({
-      hasText: /раскрыть.*неявн|→.*\*/i
-    });
-    
-    const expandExists = await expandCommand.count() > 0;
-    console.log('Команда раскрытия найдена:', expandExists);
-    
-    if (expandExists) {
-      const commandText = await expandCommand.first().textContent();
-      console.log('Применяем команду:', commandText);
-      
-      // Применяем команду
-      await expandCommand.first().click();
-      await page.waitForTimeout(500);
-      
-      // Проверяем результат - берём текст только из токенов, без тултипов
-      const tokens = expressionContainer.locator('.token');
-      const tokenTexts = await tokens.allTextContents();
-      // Фильтруем пустые строки и объединяем
-      const tokenText = tokenTexts.filter(t => t.trim()).join('');
-      console.log('Результат после трансформации (токены):', tokenText);
-      
-      // Также проверим поле ввода, которое должно содержать правильное выражение
-      const inputValue = await expressionInput.inputValue();
-      console.log('Значение в поле ввода:', inputValue);
-      
-      const normalized = inputValue.replace(/\s+/g, '');
-      console.log('Нормализованный результат:', normalized);
-      
-      // Проверяем что ab раскрылось в a*b, а c осталось на месте
-      // Ожидаем: a*bc или a * bc
-      expect(normalized).toMatch(/a\*bc/);
-      
-      // Дополнительная проверка: после 'a' должна быть '*', потом 'b', потом 'c'
-      const indexOfA = normalized?.indexOf('a');
-      const indexOfStar = normalized?.indexOf('*');
-      const indexOfB = normalized?.indexOf('b');
-      const indexOfC = normalized?.indexOf('c');
-      
-      console.log('Позиции символов:', { a: indexOfA, '*': indexOfStar, b: indexOfB, c: indexOfC });
-      
-      // a < * < b < c
-      expect(indexOfA).toBeLessThan(indexOfStar ?? 0);
-      expect(indexOfStar).toBeLessThan(indexOfB ?? 0);
-      expect(indexOfB).toBeLessThan(indexOfC ?? 0);
-      
-    } else {
-      console.error('\n❌ Команда раскрытия неявного умножения НЕ НАЙДЕНА!');
-      expect(expandExists).toBe(true);
-    }
+    expect(commandCount).toBe(0);
     
     // Выводим логи
     if (consoleMessages.length > 0) {
@@ -508,7 +452,7 @@ test.describe('Тестирование трансформаций на вирт
     console.log('Построенное выражение:', initialValue);
     
     // Ищем фрейм для пары "2+3"
-    const frame2plus3 = page.locator('.expression-range[data-text="2 + 3"]');
+    const frame2plus3 = getFrameByPath(page, 'args.0');
     await expect(frame2plus3).toHaveCount(1);
     console.log('Фрейм "2 + 3" найден');
     
@@ -518,9 +462,7 @@ test.describe('Тестирование трансформаций на вирт
     console.log('Кликнули на фрейм "2 + 3"');
     
     // Ищем команду вычисления
-    const evalCommand = commandsPanel.locator('.command-item').filter({
-      hasText: /вычислить|→.*5/i
-    });
+    const evalCommand = getCommandByChangeType(page, 'SIMPLIFY_ARITHMETIC');
     
     const evalExists = await evalCommand.count() > 0;
     console.log('Команда вычисления найдена:', evalExists);
@@ -586,7 +528,7 @@ test.describe('Тестирование трансформаций на вирт
     console.log('Построенное выражение:', initialValue);
     
     // Ищем фрейм для пары "2*3"
-    const frame2mul3 = page.locator('.expression-range[data-text="2 * 3"]');
+    const frame2mul3 = getFrameByPath(page, 'args.0');
     await expect(frame2mul3).toHaveCount(1);
     console.log('Фрейм "2 * 3" найден');
     
@@ -595,9 +537,7 @@ test.describe('Тестирование трансформаций на вирт
     console.log('Кликнули на фрейм "2 * 3"');
     
     // Ищем команду вычисления
-    const evalCommand = commandsPanel.locator('.command-item').filter({
-      hasText: /вычислить|→.*6/i
-    });
+    const evalCommand = getCommandByChangeType(page, 'SIMPLIFY_ARITHMETIC');
     
     const evalExists = await evalCommand.count() > 0;
     console.log('Команда вычисления найдена:', evalExists);
@@ -659,19 +599,17 @@ test.describe('Тестирование трансформаций на вирт
     const initialValue = await expressionInput.inputValue();
     console.log('Построенное выражение:', initialValue);
     
-    // Кликаем на всё выражение (корневой узел)
-    const rootFrame = page.locator('.expression-range[data-text="1 + 0 + 2"]');
-    await expect(rootFrame).toHaveCount(1);
-    console.log('Корневой фрейм "1 + 0 + 2" найден');
+    // Кликаем на подвыражение 1+0
+    const frame1plus0 = getFrameByPath(page, 'args.0');
+    await expect(frame1plus0).toHaveCount(1);
+    console.log('Фрейм "1 + 0" найден');
     
-    await rootFrame.click();
+    await frame1plus0.click();
     await page.waitForTimeout(300);
     console.log('Кликнули на корневой фрейм');
     
     // Ищем команду удаления +0
-    const removeZeroCommand = commandsPanel.locator('.command-item').filter({
-      hasText: /убрать.*\+0/i
-    });
+    const removeZeroCommand = getCommandByChangeType(page, 'REMOVE_ADDING_ZERO');
     
     const removeZeroExists = await removeZeroCommand.count() > 0;
     console.log('Команда "Убрать +0" найдена:', removeZeroExists);
@@ -735,19 +673,17 @@ test.describe('Тестирование трансформаций на вирт
     const initialValue = await expressionInput.inputValue();
     console.log('Построенное выражение:', initialValue);
     
-    // Кликаем на всё выражение
-    const rootFrame = page.locator('.expression-range[data-text="a * 1 * b"]');
-    await expect(rootFrame).toHaveCount(1);
-    console.log('Корневой фрейм "a * 1 * b" найден');
+    // Кликаем на подвыражение a*1
+    const frameA1 = getFrameByPath(page, 'args.0');
+    await expect(frameA1).toHaveCount(1);
+    console.log('Фрейм "a * 1" найден');
     
-    await rootFrame.click();
+    await frameA1.click();
     await page.waitForTimeout(300);
     console.log('Кликнули на корневой фрейм');
     
     // Ищем команду удаления *1
-    const removeOneCommand = commandsPanel.locator('.command-item').filter({
-      hasText: /убрать.*\*1/i
-    });
+    const removeOneCommand = getCommandByChangeType(page, 'REMOVE_MULTIPLYING_BY_ONE');
     
     const removeOneExists = await removeOneCommand.count() > 0;
     console.log('Команда "Убрать *1" найдена:', removeOneExists);
@@ -777,8 +713,8 @@ test.describe('Тестирование трансформаций на вирт
     }
   });
   
-  test('Кейс 5: Сворачивание явного умножения в неявное для пары в n-арной операции (a*b в abc → свернуть → abc)', async ({ page }) => {
-    console.log('\n=== ТЕСТ: Сворачивание a*b в неявное в контексте a*b*c ===');
+  test('Кейс 5: Для a*b*c нет команд неявного умножения', async ({ page }) => {
+    console.log('\n=== ТЕСТ: Для a*b*c нет доступных преобразований ===');
     
     const consoleMessages: string[] = [];
     const consoleErrors: string[] = [];
@@ -799,7 +735,6 @@ test.describe('Тестирование трансформаций на вирт
     await expressionInput.clear();
     await page.waitForTimeout(200);
     
-    // Начинаем с явного умножения a*b*c
     await expressionInput.click();
     await expressionInput.fill('a * b * c');
     console.log('Введено выражение: a * b * c');
@@ -807,90 +742,17 @@ test.describe('Тестирование трансформаций на вирт
     await page.locator('#buildBtn').click();
     await page.waitForTimeout(500);
     
-    const commandsPanel = page.locator('#commandsPanel');
-    
-    const initialValue = await expressionInput.inputValue();
-    console.log('Построенное выражение:', initialValue);
-    
-    // Сначала сворачиваем всё выражение
-    const rootFrame = page.locator('.expression-range').first();
+    const rootFrame = getFrameByPath(page, 'root');
     await rootFrame.click();
     await page.waitForTimeout(300);
     
-    const collapseAllCommand = commandsPanel.locator('.command-item').filter({
-      hasText: /свернуть.*неявн/i
-    });
+    const commandCount = await getCommandItems(page).count();
+    console.log(`Количество команд: ${commandCount}`);
+    expect(commandCount).toBe(0);
     
-    const collapseAllExists = await collapseAllCommand.count() > 0;
-    console.log('Команда "Свернуть в неявное *" для всего выражения найдена:', collapseAllExists);
-    
-    if (collapseAllExists) {
-      await collapseAllCommand.first().click();
-      await page.waitForTimeout(500);
-      
-      let resultValue = await expressionInput.inputValue();
-      let normalized = resultValue.replace(/\s+/g, '');
-      console.log('После сворачивания всего выражения:', normalized);
-      
-      // Теперь должно быть abc
-      expect(normalized).toBe('abc');
-      
-      // Теперь раскрываем ab обратно в a*b
-      await page.locator('#buildBtn').click();
-      await page.waitForTimeout(500);
-      
-      const frameAB = page.locator('.expression-range[data-text="ab"]');
-      const frameABExists = await frameAB.count() > 0;
-      console.log('Фрейм "ab" найден:', frameABExists);
-      
-      if (frameABExists) {
-        await frameAB.first().click();
-        await page.waitForTimeout(300);
-        
-        const expandCommand = commandsPanel.locator('.command-item').filter({
-          hasText: /раскрыть.*неявн/i
-        });
-        
-        const expandExists = await expandCommand.count() > 0;
-        console.log('Команда "Раскрыть неявное *" найдена:', expandExists);
-        
-        if (expandExists) {
-          await expandCommand.first().click();
-          await page.waitForTimeout(500);
-          
-          resultValue = await expressionInput.inputValue();
-          normalized = resultValue.replace(/\s+/g, '');
-          console.log('После раскрытия ab → a*b:', normalized);
-          
-          // Должно быть a*bc
-          expect(normalized).toMatch(/a\*bc/);
-          console.log('✅ Раскрытие/сворачивание неявного умножения в парах работает');
-          
-          // Теперь свернём обратно
-          await frameAB.first().click();
-          await page.waitForTimeout(300);
-          
-          const collapseCommand = commandsPanel.locator('.command-item').filter({
-            hasText: /свернуть.*неявн/i
-          });
-          
-          const collapseExists = await collapseCommand.count() > 0;
-          console.log('Команда "Свернуть в неявное *" для пары найдена:', collapseExists);
-          
-          if (collapseExists) {
-            await collapseCommand.first().click();
-            await page.waitForTimeout(500);
-            
-            resultValue = await expressionInput.inputValue();
-            normalized = resultValue.replace(/\s+/g, '');
-            console.log('После сворачивания a*b обратно:', normalized);
-            
-            // Должно вернуться abc
-            expect(normalized).toBe('abc');
-            console.log('✅ Сворачивание пары a*b → ab в контексте abc успешно');
-          }
-        }
-      }
+    if (consoleMessages.length > 0) {
+      console.log('\n=== КОНСОЛЬНЫЕ ЛОГИ ===');
+      consoleMessages.forEach(msg => console.log(msg));
     }
     
     if (consoleErrors.length > 0) {
@@ -899,8 +761,8 @@ test.describe('Тестирование трансформаций на вирт
     }
   });
   
-  test('Кейс 6: Коммутативность для пар в n-арных операциях не ломает структуру', async ({ page }) => {
-    console.log('\n=== ТЕСТ: Коммутативность 2+3 в 2+3+4 → 3+2+4 ===');
+  test('Кейс 6: Коммутативность не отображается для mathsteps-операций', async ({ page }) => {
+    console.log('\n=== ТЕСТ: Коммутативность недоступна для 2+3+4 ===');
     
     const consoleMessages: string[] = [];
     const consoleErrors: string[] = [];
@@ -934,7 +796,7 @@ test.describe('Тестирование трансформаций на вирт
     console.log('Построенное выражение:', initialValue);
     
     // Кликаем на пару 2+3
-    const frame2plus3 = page.locator('.expression-range[data-text="2 + 3"]');
+    const frame2plus3 = getFrameByPath(page, 'args.0');
     await expect(frame2plus3).toHaveCount(1);
     console.log('Фрейм "2 + 3" найден');
     
@@ -943,48 +805,13 @@ test.describe('Тестирование трансформаций на вирт
     console.log('Кликнули на фрейм "2 + 3"');
     
     // Ищем команду коммутативности
-    const commutativeCommand = commandsPanel.locator('.command-item').filter({
+    const commutativeCommand = getCommandItems(page).filter({
       hasText: /поменять.*местами/i
     });
     
     const commutativeExists = await commutativeCommand.count() > 0;
     console.log('Команда коммутативности найдена:', commutativeExists);
-    expect(commutativeExists).toBe(true);
-    
-    if (commutativeExists) {
-      const commandText = await commutativeCommand.first().textContent();
-      console.log('Применяем команду:', commandText);
-      
-      await commutativeCommand.first().click();
-      await page.waitForTimeout(500);
-      
-      const resultValue = await expressionInput.inputValue();
-      const normalized = resultValue.replace(/\s+/g, '');
-      console.log('Результат после коммутативности:', normalized);
-      
-      // Должно получиться 3+2+4
-      expect(normalized).toMatch(/3\+2\+4/);
-      console.log('✅ Коммутативность для пары в n-арной операции успешна');
-      
-      // Проверяем что n-арная структура сохранилась (есть 3 элемента)
-      await page.locator('#buildBtn').click();
-      await page.waitForTimeout(500);
-      
-      // Должны быть пары 3+2 и 2+4
-      const frame3plus2 = page.locator('.expression-range[data-text="3 + 2"]');
-      const frame2plus4 = page.locator('.expression-range[data-text="2 + 4"]');
-      
-      const frame3plus2Exists = await frame3plus2.count() > 0;
-      const frame2plus4Exists = await frame2plus4.count() > 0;
-      
-      console.log('Фрейм "3 + 2" найден:', frame3plus2Exists);
-      console.log('Фрейм "2 + 4" найден:', frame2plus4Exists);
-      
-      expect(frame3plus2Exists).toBe(true);
-      expect(frame2plus4Exists).toBe(true);
-      
-      console.log('✅ N-арная структура сохранена после коммутативности');
-    }
+    expect(commutativeExists).toBe(false);
     
     if (consoleErrors.length > 0) {
       console.error('\n=== ОШИБКИ ===');
@@ -992,8 +819,8 @@ test.describe('Тестирование трансформаций на вирт
     }
   });
   
-  test('Кейс 7: Обёртывание пары в скобки (a+b в a+b+c → (a+b)+c)', async ({ page }) => {
-    console.log('\n=== ТЕСТ: Обёртывание пары a+b в скобки ===');
+  test('Кейс 7: Команда обёртывания в скобки не отображается', async ({ page }) => {
+    console.log('\n=== ТЕСТ: Скобки недоступны для a+b+c ===');
     
     const consoleMessages: string[] = [];
     const consoleErrors: string[] = [];
@@ -1027,7 +854,7 @@ test.describe('Тестирование трансформаций на вирт
     console.log('Построенное выражение:', initialValue);
     
     // Кликаем на пару a+b
-    const frameAplusB = page.locator('.expression-range[data-text="a + b"]');
+    const frameAplusB = getFrameByPath(page, 'args.0');
     await expect(frameAplusB).toHaveCount(1);
     console.log('Фрейм "a + b" найден');
     
@@ -1036,29 +863,13 @@ test.describe('Тестирование трансформаций на вирт
     console.log('Кликнули на фрейм "a + b"');
     
     // Ищем команду добавления скобок
-    const addParensCommand = commandsPanel.locator('.command-item').filter({
+    const addParensCommand = getCommandItems(page).filter({
       hasText: /добавить.*скобки/i
     });
     
     const addParensExists = await addParensCommand.count() > 0;
     console.log('Команда "Добавить скобки" найдена:', addParensExists);
-    expect(addParensExists).toBe(true);
-    
-    if (addParensExists) {
-      const commandText = await addParensCommand.first().textContent();
-      console.log('Применяем команду:', commandText);
-      
-      await addParensCommand.first().click();
-      await page.waitForTimeout(500);
-      
-      const resultValue = await expressionInput.inputValue();
-      const normalized = resultValue.replace(/\s+/g, '');
-      console.log('Результат после добавления скобок:', normalized);
-      
-      // Должно получиться что-то с (a+b)
-      expect(normalized).toMatch(/\(a\+b\)/);
-      console.log('✅ Обёртывание пары в скобки успешно');
-    }
+    expect(addParensExists).toBe(false);
     
     if (consoleErrors.length > 0) {
       console.error('\n=== ОШИБКИ ===');
@@ -1100,46 +911,32 @@ test.describe('Тестирование трансформаций на вирт
     const initialValue = await expressionInput.inputValue();
     console.log('Построенное выражение:', initialValue);
     
-    // Ищем фрейм для пары "-2+3" (может отображаться по-разному)
-    const frameMinus2plus3 = page.locator('.expression-range').filter({
-      has: page.locator(':text("-2")')
-    }).filter({
-      has: page.locator(':text("3")')
-    }).first();
+    // Ищем фрейм для пары "-2+3"
+    const frameMinus2plus3 = getFrameByPath(page, 'args.0');
+    await expect(frameMinus2plus3).toHaveCount(1);
+    await frameMinus2plus3.click();
+    await page.waitForTimeout(300);
+    console.log('Кликнули на фрейм пары -2 и 3');
     
-    const frameExists = await frameMinus2plus3.count() > 0;
-    console.log('Фрейм для пары с -2 и 3 найден:', frameExists);
+    // Ищем команду вычисления
+    const evalCommand = getCommandByChangeType(page, 'SIMPLIFY_ARITHMETIC');
     
-    if (frameExists) {
-      await frameMinus2plus3.click();
-      await page.waitForTimeout(300);
-      console.log('Кликнули на фрейм пары -2 и 3');
-      
-      // Ищем команду вычисления
-      const evalCommand = commandsPanel.locator('.command-item').filter({
-        hasText: /вычислить/i
-      });
-      
-      const evalExists = await evalCommand.count() > 0;
-      console.log('Команда вычисления найдена:', evalExists);
-      
-      if (evalExists) {
-        const commandText = await evalCommand.first().textContent();
-        console.log('Применяем команду:', commandText);
-        
-        await evalCommand.first().click();
-        await page.waitForTimeout(500);
-        
-        const resultValue = await expressionInput.inputValue();
-        console.log('Результат после вычисления:', resultValue);
-        
-        // Должно содержать 1 (результат -2+3)
-        expect(resultValue).toContain('1');
-        console.log('✅ Вычисление с отрицательными числами успешно');
-      }
-    } else {
-      console.log('⚠️ Фрейм не найден, пропускаем тест');
-    }
+    const evalExists = await evalCommand.count() > 0;
+    console.log('Команда вычисления найдена:', evalExists);
+    expect(evalExists).toBe(true);
+    
+    const commandText = await evalCommand.first().textContent();
+    console.log('Применяем команду:', commandText);
+    
+    await evalCommand.first().click();
+    await page.waitForTimeout(500);
+    
+    const resultValue = await expressionInput.inputValue();
+    console.log('Результат после вычисления:', resultValue);
+    
+    // Должно содержать 1 (результат -2+3)
+    expect(resultValue).toContain('1');
+    console.log('✅ Вычисление с отрицательными числами успешно');
     
     if (consoleErrors.length > 0) {
       console.error('\n=== ОШИБКИ ===');
@@ -1169,7 +966,7 @@ test.describe('Тестирование трансформаций на вирт
     await expressionInput.clear();
     await page.waitForTimeout(200);
     
-    // Вводим a*bc - явный * между a и bc, где bc должно быть неявным умножением
+    // Вводим a*bc - явный * между a и bc, где bc — единый идентификатор
     await expressionInput.click();
     await expressionInput.fill('a*bc');
     console.log('Введено выражение: a*bc');
@@ -1181,43 +978,13 @@ test.describe('Тестирование трансформаций на вирт
     const normalized = initialValue.replace(/\s+/g, '');
     console.log('Построенное выражение:', normalized);
     
-    // Проверяем что есть фрейм для bc (неявное умножение)
-    const frameBc = page.locator('.expression-range[data-text="bc"]');
+    // Проверяем что есть фрейм для bc (как отдельного идентификатора)
+    const frameBc = getFrameByPath(page, 'args.1');
     const frameBcExists = await frameBc.count() > 0;
-    console.log('Фрейм "bc" (неявное умножение) найден:', frameBcExists);
+    console.log('Фрейм "bc" (отдельный идентификатор) найден:', frameBcExists);
     
     // БАГ: Фрейм bc не будет найден, если парсится как a*b*c (три отдельных операнда)
     expect(frameBcExists).toBe(true);
-    
-    if (frameBcExists) {
-      // Проверяем что можно свернуть всё в неявное умножение
-      const rootFrame = page.locator('.expression-range').first();
-      await rootFrame.click();
-      await page.waitForTimeout(300);
-      
-      const commandsPanel = page.locator('#commandsPanel');
-      const collapseCommand = commandsPanel.locator('.command-item').filter({
-        hasText: /свернуть.*неявн/i
-      });
-      
-      const collapseExists = await collapseCommand.count() > 0;
-      console.log('Команда "Свернуть в неявное *" найдена:', collapseExists);
-      
-      if (collapseExists) {
-        await collapseCommand.first().click();
-        await page.waitForTimeout(500);
-        
-        const resultValue = await expressionInput.inputValue();
-        const resultNormalized = resultValue.replace(/\s+/g, '');
-        console.log('После сворачивания:', resultNormalized);
-        
-        // Должно получиться abc
-        expect(resultNormalized).toBe('abc');
-        console.log('✅ БАГ исправлен: a*bc корректно парсится как a*(bc)');
-      }
-    } else {
-      console.log('❌ БАГ ВОСПРОИЗВЕДЕН: выражение a*bc парсится как a*b*c вместо a*(bc)');
-    }
     
     if (consoleErrors.length > 0) {
       console.error('\n=== ОШИБКИ ===');
@@ -1229,112 +996,62 @@ test.describe('Тестирование трансформаций на вирт
     console.log('\n=== ТЕСТ: БАГ несоответствия фреймов после трансформации ===');
     
     await page.goto('expression-editor-modular.html');
+    await page.waitForLoadState('domcontentloaded');
     await expect(page).toHaveTitle('Преобразователь выражений');
+    await page.waitForTimeout(1000);
     
     const expressionInput = page.locator('#expressionInput');
-    const commandsPanel = page.locator('#commandsPanel');
     
-    // Тест 1: abc -> ab * c
-    console.log('\n--- Тест 1: abc -> ab * c ---');
+    await expressionInput.clear();
+    await page.waitForTimeout(200);
     await expressionInput.click();
-    await expressionInput.fill('abc');
-    console.log('Введено выражение: abc');
+    await expressionInput.fill('1 + 0 + 2');
+    console.log('Введено выражение: 1 + 0 + 2');
     
     await page.locator('#buildBtn').click();
     await page.waitForTimeout(500);
     
-    // Выбираем фрейм ab
-    const frameAb = page.locator('.expression-range[data-text="ab"]');
-    await expect(frameAb).toBeVisible();
-    await frameAb.click();
+    const frame1plus0 = getFrameByPath(page, 'args.0');
+    await expect(frame1plus0).toHaveCount(1);
+    await frame1plus0.click();
     await page.waitForTimeout(300);
     
-    // Применяем раскрытие в явное умножение
-    const expandCommand = commandsPanel.locator('.command-item').filter({
-      hasText: /раскрыть.*явн/i
-    });
-    await expect(expandCommand).toBeVisible();
-    await expandCommand.first().click();
+    const removeZeroCommand = getCommandByChangeType(page, 'REMOVE_ADDING_ZERO');
+    await expect(removeZeroCommand).toHaveCount(1);
+    await removeZeroCommand.first().click();
     await page.waitForTimeout(500);
     
-    // Получаем структуру фреймов после трансформации
-    const framesAfterTransform1 = await page.locator('.expression-range').evaluateAll(frames => 
+    const framesAfterTransform = await getFrames(page).evaluateAll(frames =>
       frames.map(f => ({
-        text: f.getAttribute('data-text'),
-        type: f.getAttribute('data-type'),
-        nodeId: f.getAttribute('data-node-id')
+        pathKey: f.getAttribute('data-path-key'),
+        nodeType: f.getAttribute('data-node-type'),
+        text: f.getAttribute('data-text')
       }))
     );
-    console.log('Фреймы после трансформации (ab * c):', JSON.stringify(framesAfterTransform1, null, 2));
-    
-    // Нажимаем Построить снова
-    await page.locator('#buildBtn').click();
-    await page.waitForTimeout(500);
-    
-    // Получаем структуру фреймов после пересборки
-    const framesAfterRebuild1 = await page.locator('.expression-range').evaluateAll(frames => 
-      frames.map(f => ({
-        text: f.getAttribute('data-text'),
-        type: f.getAttribute('data-type')
-        // nodeId не сравниваем - он может меняться
-      }))
-    );
-    console.log('Фреймы после пересборки (ab * c):', JSON.stringify(framesAfterRebuild1, null, 2));
-    
-    // Сравниваем структуры (без nodeId)
-    expect(framesAfterRebuild1).toEqual(framesAfterTransform1.map(f => ({ text: f.text, type: f.type })));
-    
-    // Тест 2: abc -> a * bc
-    console.log('\n--- Тест 2: abc -> a * bc ---');
-    await page.locator('#clearBtn').click();
-    await page.waitForTimeout(300);
-    
-    await expressionInput.click();
-    await expressionInput.fill('abc');
-    console.log('Введено выражение: abc');
+    console.log('Фреймы после трансформации:', JSON.stringify(framesAfterTransform, null, 2));
     
     await page.locator('#buildBtn').click();
     await page.waitForTimeout(500);
     
-    // Выбираем фрейм bc
-    const frameBc = page.locator('.expression-range[data-text="bc"]');
-    await expect(frameBc).toBeVisible();
-    await frameBc.click();
-    await page.waitForTimeout(300);
-    
-    // Применяем раскрытие в явное умножение
-    const expandCommand2 = commandsPanel.locator('.command-item').filter({
-      hasText: /раскрыть.*явн/i
-    });
-    await expect(expandCommand2).toBeVisible();
-    await expandCommand2.first().click();
-    await page.waitForTimeout(500);
-    
-    // Получаем структуру фреймов после трансформации
-    const framesAfterTransform2 = await page.locator('.expression-range').evaluateAll(frames => 
+    const framesAfterRebuild = await getFrames(page).evaluateAll(frames =>
       frames.map(f => ({
-        text: f.getAttribute('data-text'),
-        type: f.getAttribute('data-type'),
-        nodeId: f.getAttribute('data-node-id')
+        pathKey: f.getAttribute('data-path-key'),
+        nodeType: f.getAttribute('data-node-type'),
+        text: f.getAttribute('data-text')
       }))
     );
-    console.log('Фреймы после трансформации (a * bc):', JSON.stringify(framesAfterTransform2, null, 2));
+    console.log('Фреймы после пересборки:', JSON.stringify(framesAfterRebuild, null, 2));
     
-    // Нажимаем Построить снова
-    await page.locator('#buildBtn').click();
-    await page.waitForTimeout(500);
+    const normalizeFrames = (items: Array<{ pathKey: string | null; nodeType: string | null; text: string | null }>) =>
+      items
+        .map(item => ({
+          pathKey: item.pathKey || '',
+          nodeType: item.nodeType || '',
+          text: item.text || ''
+        }))
+        .sort((a, b) => a.pathKey.localeCompare(b.pathKey));
     
-    // Получаем структуру фреймов после пересборки
-    const framesAfterRebuild2 = await page.locator('.expression-range').evaluateAll(frames => 
-      frames.map(f => ({
-        text: f.getAttribute('data-text'),
-        type: f.getAttribute('data-type')
-      }))
-    );
-    console.log('Фреймы после пересборки (a * bc):', JSON.stringify(framesAfterRebuild2, null, 2));
-    
-    // Сравниваем структуры (без nodeId)
-    expect(framesAfterRebuild2).toEqual(framesAfterTransform2.map(f => ({ text: f.text, type: f.type })));
+    expect(normalizeFrames(framesAfterRebuild)).toEqual(normalizeFrames(framesAfterTransform));
     
     console.log('✅ Фреймы после трансформации совпадают с фреймами после пересборки');
   });

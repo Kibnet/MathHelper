@@ -42,6 +42,15 @@ npm run test:ui
 npm run coverage
 ```
 
+### E2E (Playwright)
+
+Полные инструкции и подробности по запуску E2E лежат в `e2e/README.md`.
+
+Рекомендуемый запуск:
+```bash
+npm run test:e2e:with-dev
+```
+
 ### Test Runner Features (Vitest)
 
 - **Watch Mode** - Automatically re-run tests on file changes

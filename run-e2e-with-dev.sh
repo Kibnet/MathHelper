@@ -3,6 +3,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
 PORT="${E2E_PORT:-8000}"
 HOST="${E2E_HOST:-0.0.0.0}"
 BASE_URL="${E2E_BASE_URL:-http://localhost:${PORT}/MathHelper/}"
@@ -76,6 +79,7 @@ stop_processes_on_port "$PORT"
 
 echo "Запуск dev-сервера..."
 DEV_LOG="$(mktemp -t mathhelper-dev-server.XXXXXX.log)"
+KEEP_LOG=0
 npm run dev -- --host "$HOST" --port "$PORT" >"$DEV_LOG" 2>&1 &
 DEV_PID=$!
 
@@ -85,14 +89,20 @@ cleanup() {
     kill -TERM "$DEV_PID" 2>/dev/null || true
   fi
   stop_processes_on_port "$PORT"
-  rm -f "$DEV_LOG"
+  if [[ "$KEEP_LOG" -eq 0 ]]; then
+    rm -f "$DEV_LOG"
+  else
+    echo "Лог dev-сервера сохранен: $DEV_LOG"
+  fi
 }
 
 trap cleanup EXIT
 
 echo "Ожидание готовности: $HEALTH_URL"
 if ! wait_for_server "$HEALTH_URL" "$TIMEOUT_SECONDS"; then
+  KEEP_LOG=1
   echo "Dev-сервер не поднялся за ${TIMEOUT_SECONDS} секунд. Лог: $DEV_LOG"
+  tail -n 50 "$DEV_LOG" || true
   exit 1
 fi
 

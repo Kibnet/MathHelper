@@ -56,6 +56,14 @@ export class CommandPanel {
       categoryRules.forEach(operation => {
         const item = document.createElement('div');
         item.className = 'command-item';
+        item.dataset.testid = 'command-item';
+        item.dataset.operationId = operation.id;
+        item.dataset.operationName = operation.name;
+        item.dataset.operationPreview = operation.preview;
+        const changeType = this.getChangeType(operation);
+        if (changeType) {
+          item.dataset.changeType = changeType;
+        }
         
         const name = document.createElement('div');
         name.className = 'command-name';
@@ -131,5 +139,16 @@ export class CommandPanel {
   clear(): void {
     this.currentSelection = null;
     this.showPlaceholder('Выберите фрейм для просмотра преобразований');
+  }
+
+  private getChangeType(operation: MathStepsOperation): string {
+    if (operation.transform?.changeType) {
+      return operation.transform.changeType;
+    }
+    if (operation.id.startsWith('solve:')) {
+      const parts = operation.id.split(':');
+      return parts[1] || '';
+    }
+    return '';
   }
 }

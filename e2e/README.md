@@ -8,6 +8,13 @@
 # Запуск всех E2E тестов (headless режим)
 npm run test:e2e
 
+# Запуск E2E с автоматическим dev-сервером (рекомендуется)
+npm run test:e2e:with-dev
+
+# Явные варианты по ОС
+npm run test:e2e:with-dev:ps   # PowerShell
+npm run test:e2e:with-dev:sh   # bash
+
 # Запуск тестов с видимым браузером (headed режим)
 npm run test:e2e:headed
 
@@ -38,7 +45,39 @@ npx playwright test --grep "консоль"
 
 **КРИТИЧЕСКИ ВАЖНО:** Dev сервер должен быть запущен!
 
-### Вариант 1: Запуск сервера вручную (РЕКОМЕНДУЕТСЯ)
+### Вариант 0: Автоматический запуск dev-сервера (РЕКОМЕНДУЕТСЯ)
+
+```bash
+# Кроссплатформенный запуск (выбирает PowerShell или bash)
+npm run test:e2e:with-dev
+
+# Прямой запуск скриптов
+./run-e2e-with-dev.sh
+powershell -ExecutionPolicy Bypass -File .\\run-e2e-with-dev.ps1
+```
+
+**Поведение:**
+- Останавливает процессы, которые слушают `E2E_PORT`
+- Запускает dev‑сервер
+- Ждёт готовность страницы `expression-editor-modular.html`
+- Запускает E2E и гасит сервер в конце
+
+**Переменные окружения (с fallback):**
+```bash
+# Порт dev-сервера
+E2E_PORT=8000
+
+# Host dev-сервера
+E2E_HOST=0.0.0.0
+
+# База для Playwright
+E2E_BASE_URL="http://localhost:8000/MathHelper/"
+
+# Таймаут ожидания сервера (в секундах)
+E2E_STARTUP_TIMEOUT_SECONDS=60
+```
+
+### Вариант 1: Запуск сервера вручную
 
 ```bash
 # В первом терминале запустите сервер:
@@ -57,10 +96,10 @@ npm run test:e2e
 - Быстрее повторные запуски
 - Проще отлаживать - видно логи сервера
 
-### Вариант 2: Автоматический запуск сервера
+### Вариант 2: Автоматический запуск через Playwright `webServer` (не рекомендуется)
 
-В `playwright.config.ts` есть закомментированная секция `webServer`. 
-Раскомментируйте её если хотите автоматический запуск.
+В `playwright.config.ts` есть закомментированная секция `webServer`.
+Используйте её только если не подходит `npm run test:e2e:with-dev`.
 
 **Недостатки:**
 - Может не работать в некоторых средах (PowerShell)
@@ -95,7 +134,8 @@ curl http://localhost:8000/expression-editor-modular.html
 # Для корректного вывода в PowerShell:
 $env:FORCE_COLOR=1; npx playwright test --reporter=list
 
-# Или используйте вспомогательный скрипт:
+# Или используйте вспомогательные скрипты:
+.\run-e2e-with-dev.ps1
 .\run-e2e-tests.ps1
 ```
 
@@ -156,13 +196,12 @@ e2e/
 
 **Решение:**
 ```bash
-# 1. Убедитесь что сервер запущен:
+# Рекомендуемый вариант:
+npm run test:e2e:with-dev
+
+# Либо вручную:
 npm run dev
-
-# 2. Проверьте что он доступен:
 curl http://localhost:8000/expression-editor-modular.html
-
-# 3. Запустите тесты:
 npm run test:e2e
 ```
 
@@ -249,13 +288,12 @@ await page.pause(); // Откроет Playwright Inspector
 
 ## Быстрый старт для AI-ассистента
 
-### Шаг 1: Убедиться что сервер запущен
+### Шаг 1: Запустить тесты с автосервером
 ```bash
-npm run dev
-# Должно вывести: ✓ VITE ready... ➜ Local: http://localhost:8000/
+npm run test:e2e:with-dev
 ```
 
-### Шаг 2: Запустить тесты с правильным выводом
+### Шаг 2: Запустить тесты с правильным выводом (если нужен явный вывод)
 ```bash
 # PowerShell:
 $env:FORCE_COLOR=1; npx playwright test --reporter=list

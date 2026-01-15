@@ -268,10 +268,22 @@ export class ExpressionDisplay {
       frame.style.width = `${pos.width}px`;
       frame.style.top = `${baseOffset + (pos as any).level * levelHeight}px`;
 
+      frame.dataset.testid = 'expression-frame';
       frame.title = pos.text;
       frame.dataset.text = pos.text;
       frame.dataset.nodeId = '';
       frame.dataset.path = JSON.stringify(pos.path);
+      frame.dataset.pathKey = this.pathToKey(pos.path);
+      frame.dataset.nodeType = this.getNodeType(pos.node);
+      if (this.isOperatorNode(pos.node)) {
+        frame.dataset.operator = pos.node.op || '';
+        if (pos.node.implicit === true) {
+          frame.dataset.implicit = 'true';
+        }
+      }
+      if (this.isFunctionNode(pos.node)) {
+        frame.dataset.function = this.getFunctionName(pos.node);
+      }
 
       const labelContainer = document.createElement('div');
       labelContainer.className = 'frame-label-container';
@@ -427,6 +439,20 @@ export class ExpressionDisplay {
 
   private doRangesOverlap(start1: number, end1: number, start2: number, end2: number): boolean {
     return !(end1 <= start2 || end2 <= start1);
+  }
+
+  private pathToKey(path: MathStepsPath): string {
+    if (!path || path.length === 0) {
+      return 'root';
+    }
+    return path.map(part => String(part)).join('.');
+  }
+
+  private getNodeType(node: MathStepsNode | EquationNode): string {
+    if (this.isEquationNode(node)) {
+      return node.type;
+    }
+    return node.type || 'Unknown';
   }
 
   private isEquationNode(node: MathStepsNode | EquationNode): node is EquationNode {

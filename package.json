@@ -17,6 +17,9 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
+    "test:e2e:with-dev": "node --input-type=module -e \"import { spawnSync } from 'node:child_process'; const isWin = process.platform === 'win32'; const cmd = isWin ? 'powershell' : 'bash'; const args = isWin ? ['-ExecutionPolicy','Bypass','-File','./run-e2e-with-dev.ps1'] : ['./run-e2e-with-dev.sh']; const res = spawnSync(cmd, args, { stdio: 'inherit' }); process.exit(res.status ?? 1);\"",
+    "test:e2e:with-dev:ps": "powershell -ExecutionPolicy Bypass -File .\\run-e2e-with-dev.ps1",
+    "test:e2e:with-dev:sh": "bash ./run-e2e-with-dev.sh",
     "dev:debug": "node --inspect-brk node_modules/.bin/vite"
   },
   "dependencies": {
