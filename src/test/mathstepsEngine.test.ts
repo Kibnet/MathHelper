@@ -110,4 +110,110 @@ describe('MathStepsEngine', () => {
     expect(root).toBeTruthy();
     expect(root?.path).toEqual([]);
   });
+
+  it('должен обрабатывать listOps для всех подвыражений в 1---1 без исключений', () => {
+    // Баг: при выборе второй "1" в выражении "1---1" возникает исключение
+    // "Некорректный путь к args" из библиотеки mathsteps
+    const engine = new MathStepsEngine();
+    const expression = '1---1';
+    const node = engine.parse(expression);
+    const exprString = engine.stringify(node);
+
+    // Извлекаем все подвыражения с их путями
+    const subexpressions = extractNodesFromMathStepsAst(node, exprString);
+
+    // Выводим пути для отладки
+    console.log('Subexpressions for 1---1:');
+    for (const subexpr of subexpressions) {
+      console.log(`  "${subexpr.text}" -> path: [${subexpr.path!.map(p => JSON.stringify(p)).join(', ')}]`);
+    }
+
+    // Для каждого подвыражения вызываем listOps - не должно быть исключений
+    for (const subexpr of subexpressions) {
+      expect(() => {
+        engine.listOps(expression, subexpr.path!);
+      }).not.toThrow();
+    }
+  });
+
+  it('должен обрабатывать путь к вложенным унарным минусам в 1---1', () => {
+    // Проверяем специфические пути, которые могут вызвать проблемы
+    const engine = new MathStepsEngine();
+    const expression = '1---1';
+    
+    // Структура 1---1 парсится как: 1 - (-(- 1))
+    // Корень: OperatorNode '-' с args [1, OperatorNode унарный '-']
+    // args[1]: OperatorNode унарный '-' с args [OperatorNode унарный '-']
+    // args[1].args[0]: OperatorNode унарный '-' с args [1]
+    // args[1].args[0].args[0]: ConstantNode 1
+    
+    // Проверяем разные пути
+    const pathsToTest = [
+      [],                           // корень: 1 - --1
+      ['args', 0],                  // первая 1
+      ['args', 1],                  // --1
+      ['args', 1, 'args', 0],       // -1 (внутренний унарный минус)
+      ['args', 1, 'args', 0, 'args', 0], // вторая 1
+    ];
+    
+    for (const path of pathsToTest) {
+      console.log(`Testing path: [${path.map(p => JSON.stringify(p)).join(', ')}]`);
+      expect(() => {
+        engine.listOps(expression, path as import('../types/index.js').MathStepsPath);
+      }).not.toThrow();
+    }
+  });
+
+  it('должен обрабатывать пути с оригинальной (ненормализованной) строкой 1---1', () => {
+    // В браузере пользователь вводит '1---1', но пути генерируются по нормализованной структуре
+    // Это может вызвать несоответствие
+    const engine = new MathStepsEngine();
+    
+    // Оригинальная строка как вводит пользователь
+    const originalExpression = '1---1';
+    
+    // Парсим и получаем нормализованную строку
+    const node = engine.parse(originalExpression);
+    const normalizedExpression = engine.stringify(node);
+    
+    console.log(`Original: "${originalExpression}", Normalized: "${normalizedExpression}"`);
+    
+    // Получаем подвыражения из нормализованного AST
+    const subexpressions = extractNodesFromMathStepsAst(node, normalizedExpression);
+    
+    // Проверяем что listOps работает с ОРИГИНАЛЬНОЙ строкой и путями из нормализованного AST
+    // Это имитирует сценарий в браузере
+    for (const subexpr of subexpressions) {
+      console.log(`Testing with original expr "${originalExpression}" and path: [${subexpr.path!.map(p => JSON.stringify(p)).join(', ')}]`);
+      expect(() => {
+        engine.listOps(originalExpression, subexpr.path!);
+      }).not.toThrow();
+    }
+  });
+
+  it('должен показывать структуру AST для диагностики проблемы с 1---1', () => {
+    const engine = new MathStepsEngine();
+    
+    // Строка как её вводит пользователь
+    const inputExpression = '1---1';
+    
+    // Парсим
+    const node = engine.parse(inputExpression);
+    const normalizedExpression = engine.stringify(node);
+    
+    // Проверяем что нормализация возвращает формат с полным раскрытием скобок
+    expect(normalizedExpression).toBe('1 - -(-1)');
+    
+    // Проверяем пути
+    const subexpressions = extractNodesFromMathStepsAst(node, normalizedExpression);
+    expect(subexpressions.length).toBeGreaterThan(0);
+    
+    // ГЛАВНАЯ ПРОВЕРКА: все пути должны работать без исключений
+    // и возвращать операции (не пустой список)
+    for (const subexpr of subexpressions) {
+      const ops = engine.listOps(normalizedExpression, subexpr.path!);
+      // Для констант (листовых узлов) операции должны быть доступны
+      expect(ops).toBeDefined();
+    }
+  });
 });

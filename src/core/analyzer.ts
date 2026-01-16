@@ -31,9 +31,11 @@ export function extractNodesFromAST(rootNode: MathStepsNode, fullExpressionStrin
 export function extractNodesFromMathStepsAst(rootNode: MathStepsNode, fullExpressionString: string): Subexpression[] {
   const subexpressions: Subexpression[] = [];
   const nodeTextMap = new Map<MathStepsNode, string>();
+  const engine = new MathStepsEngine();
 
   function buildNodeTextMap(node: MathStepsNode): void {
-    const text = node.toString();
+    // Используем engine.stringify() для единого формата с mathsteps
+    const text = engine.stringify(node);
     nodeTextMap.set(node, text);
 
     if (node.content) {

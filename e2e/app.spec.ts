@@ -1186,4 +1186,98 @@ test.describe('Тестирование трансформаций на вирт
     
     console.log('✅ Фреймы после трансформации совпадают с фреймами после пересборки');
   });
+
+  test('должен корректно показывать операции для всех подвыражений в 1---1', async ({ page }) => {
+    // Регрессионный тест: раньше при выборе второй "1" в "1---1" 
+    // возникало исключение "Некорректный путь к args"
+    console.log('\n=== ТЕСТ: Операции для подвыражений в 1---1 ===');
+    
+    const consoleErrors: string[] = [];
+    const consoleLogs: string[] = [];
+    page.on('console', msg => {
+      const text = msg.text();
+      if (msg.type() === 'error') {
+        consoleErrors.push(`[ERROR] ${text}`);
+        console.log(`[BROWSER ERROR] ${text}`);
+      } else {
+        consoleLogs.push(`[${msg.type()}] ${text}`);
+      }
+    });
+    page.on('pageerror', error => {
+      consoleErrors.push(`[PAGE ERROR] ${error.message}`);
+      console.log(`[PAGE ERROR] ${error.message}`);
+    });
+    
+    await page.goto('expression-editor-modular.html');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
+    
+    // Проверяем что нет ошибок при загрузке
+    if (consoleErrors.length > 0) {
+      console.error('Ошибки при загрузке страницы:', consoleErrors);
+    }
+    
+    const expressionInput = page.locator('#expressionInput');
+    await expressionInput.click();
+    await expressionInput.fill('1---1');
+    console.log('Введено выражение: 1---1');
+    
+    // Очищаем ошибки перед кликом
+    consoleErrors.length = 0;
+    
+    await page.locator('#buildBtn').click();
+    console.log('Клик на кнопку Построить');
+    
+    // Ждём немного для обработки
+    await page.waitForTimeout(1000);
+    
+    // Проверяем ошибки после клика
+    if (consoleErrors.length > 0) {
+      console.error('Ошибки после клика на Построить:', consoleErrors);
+    }
+    
+    // Ждём появления фреймов
+    try {
+      await page.waitForSelector('[data-testid="expression-frame"]', { timeout: 5000 });
+    } catch (e) {
+      console.log('Фреймы не появились. Консольные логи:', consoleLogs.slice(-10));
+      throw e;
+    }
+    await page.waitForTimeout(500);
+    
+    // Проверяем что выражение было построено (текст отображается в контейнере)
+    const expressionText = page.locator('#expressionText');
+    const displayedText = await expressionText.textContent();
+    console.log('Отображаемое выражение:', displayedText?.trim());
+    
+    // Получаем все фреймы
+    const frames = getFrames(page);
+    const frameCount = await frames.count();
+    console.log('Количество фреймов:', frameCount);
+    expect(frameCount).toBeGreaterThan(0);
+    
+    // Кликаем на каждый фрейм и проверяем что нет ошибок
+    for (let i = 0; i < frameCount; i++) {
+      const frame = frames.nth(i);
+      const frameText = await frame.getAttribute('data-text');
+      const framePath = await frame.getAttribute('data-path-key');
+      
+      console.log(`Клик на фрейм ${i}: text="${frameText}", path="${framePath}"`);
+      
+      // Очищаем ошибки перед кликом
+      consoleErrors.length = 0;
+      
+      await frame.click();
+      await page.waitForTimeout(300);
+      
+      // ГЛАВНАЯ ПРОВЕРКА: нет ошибок в консоли после клика
+      // (раньше тут возникало "Некорректный путь к args")
+      if (consoleErrors.length > 0) {
+        console.error(`ОШИБКИ при клике на фрейм "${frameText}":`, consoleErrors);
+      }
+      expect(consoleErrors).toHaveLength(0);
+    }
+    
+    console.log('✅ Все фреймы кликабельны без ошибок');
+  });
 });

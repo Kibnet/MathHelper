@@ -3,6 +3,7 @@
  */
 import { getTokenTypeName, getTokenColor } from '../../utils/tokenizer.js';
 import type { FrameSelection, EquationNode, MathStepsNode, MathStepsPath } from '../../types/index.js';
+import { MathStepsEngine } from '../../core/mathsteps-engine.js';
 
 export interface ExpressionDisplayConfig {
   onFrameClick?: (selection: FrameSelection) => void;
@@ -430,11 +431,14 @@ export class ExpressionDisplay {
     return this.isConstantNode(node) && Number(node.value) == 2;
   }
 
+  private mathStepsEngine = new MathStepsEngine();
+
   private nodeToString(node: MathStepsNode | EquationNode): string {
     if (this.isEquationNode(node)) {
       return node.toString();
     }
-    return node.toString();
+    // Используем MathStepsEngine.stringify для единого формата строк
+    return this.mathStepsEngine.stringify(node);
   }
 
   private doRangesOverlap(start1: number, end1: number, start2: number, end2: number): boolean {

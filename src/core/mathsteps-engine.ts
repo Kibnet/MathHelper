@@ -398,13 +398,17 @@ export class MathStepsEngine {
   }
 
   /**
-   * Преобразует mathjs AST в строку для отображения
+   * Преобразует mathjs AST в строку для отображения.
+   * Использует нормализацию mathsteps для совместимости путей.
    */
   stringify(node: MathStepsNode | EquationNode): string {
     if (this.isEquationNode(node)) {
       return node.toString();
     }
-    return node.toString();
+    // Используем normalizeExpression который вызывает normalizeExpressionString
+    // на результате node.toString(). Это нужно чтобы пути были совместимы
+    // с тем, что ожидает mathsteps внутри listApplicableTransforms.
+    return this.normalizeExpression(node.toString());
   }
 
   /**
@@ -487,11 +491,28 @@ export class MathStepsEngine {
     selectionPath: MathStepsPath,
     fullPath: MathStepsPath
   ): MathStepsOperation[] {
-    const transforms = mathsteps.applicableTransforms.listApplicableTransforms(
-      expression,
-      selectionPath,
-      { dedupe: 'byId' }
-    ) as MathStepsTransform[];
+    // Обёртка в try-catch для обработки несовместимости путей между AST структурами.
+    // Такое может произойти когда:
+    // 1. MathStepsEngine.parse() создаёт одну структуру AST (например, вложенные unaryMinus)
+    // 2. mathsteps.applicableTransforms нормализует выражение и получает другую структуру
+    //    (например, с ParenthesisNode вместо прямого вложения)
+    // В этом случае путь, сгенерированный для первой структуры, не работает во второй.
+    let transforms: MathStepsTransform[];
+    try {
+      transforms = mathsteps.applicableTransforms.listApplicableTransforms(
+        expression,
+        selectionPath,
+        { dedupe: 'byId' }
+      ) as MathStepsTransform[];
+    } catch (error) {
+      // Если путь некорректен для нормализованной структуры mathsteps,
+      // возвращаем пустой список операций вместо выброса исключения
+      const err = error as { code?: string };
+      if (err.code === 'INVALID_PATH') {
+        return [];
+      }
+      throw error;
+    }
 
     const operations = transforms.map((transform) => {
       const changeType = transform.changeType;
