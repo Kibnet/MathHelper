@@ -22,6 +22,11 @@ import mathsteps from 'mathsteps';
 import * as mathjs from 'mathjs';
 import { ExpressionParser, generateId } from './parser.js';
 import { cloneNode, expressionToString, nodesEqual } from '../utils/helpers.js';
+import { 
+  getNodeAtPath as getNodeAtPathUtil, 
+  replaceNodeAtPath as replaceNodeAtPathUtil,
+  isParenthesisNode as isParenthesisNodeUtil
+} from './path-utils.js';
 
 type EquationSplit = {
   left: string;
@@ -1232,78 +1237,13 @@ export class MathStepsEngine {
   }
 
   private getNodeAtPath(root: MathStepsNode, path: MathStepsPath): MathStepsNode | null {
-    let current: MathStepsNode | undefined = root;
-    let index = 0;
-
-    while (current && index < path.length) {
-      const segment = path[index];
-      if (segment === 'content') {
-        current = current.content;
-        index += 1;
-        continue;
-      }
-      if (segment === 'args') {
-        const argIndex = path[index + 1];
-        if (typeof argIndex !== 'number' || !current.args || !current.args[argIndex]) {
-          return null;
-        }
-        current = current.args[argIndex];
-        // Прозрачно разворачиваем ParenthesisNode, добавленные при нормализации.
-        // Это нужно для совместимости путей, сгенерированных из оригинального AST,
-        // с нормализованным AST (где добавляются скобки).
-        // НО: не разворачиваем если следующий сегмент - 'content', т.к. путь явно указывает на содержимое.
-        const nextSegment = path[index + 2];
-        if (nextSegment !== 'content') {
-          while (current && this.isParenthesisNode(current) && current.content) {
-            current = current.content;
-          }
-        }
-        index += 2;
-        continue;
-      }
-      return null;
-    }
-
-    return current || null;
+    // Делегируем в централизованную утилиту path-utils
+    return getNodeAtPathUtil(root, path);
   }
 
   private replaceNodeAtPath(root: MathStepsNode, path: MathStepsPath, replacement: MathStepsNode): MathStepsNode {
-    if (path.length === 0) {
-      return replacement;
-    }
-
-    const [segment, next] = path;
-    if (segment === 'content') {
-      const clone = this.cloneMathjsNode(root);
-      clone.content = root.content ? this.replaceNodeAtPath(root.content, path.slice(1), replacement) : root.content;
-      return clone;
-    }
-    if (segment === 'args') {
-      if (typeof next !== 'number' || !root.args) {
-        return root;
-      }
-      const clone = this.cloneMathjsNode(root);
-      clone.args = root.args.map((arg, index) => {
-        if (index === next) {
-          const restPath = path.slice(2);
-          // Прозрачно обрабатываем ParenthesisNode: если arg - это скобки,
-          // а остаток пути не пустой И НЕ начинается с 'content',
-          // заменяем внутри content скобок.
-          // Если путь явно содержит 'content', пропускаем прозрачную обработку.
-          const nextSegment = restPath[0];
-          if (this.isParenthesisNode(arg) && arg.content && restPath.length > 0 && nextSegment !== 'content') {
-            const parenClone = this.cloneMathjsNode(arg);
-            parenClone.content = this.replaceNodeAtPath(arg.content, restPath, replacement);
-            return parenClone;
-          }
-          return this.replaceNodeAtPath(arg, restPath, replacement);
-        }
-        return this.cloneMathjsNode(arg);
-      });
-      return clone;
-    }
-
-    return root;
+    // Делегируем в централизованную утилиту path-utils
+    return replaceNodeAtPathUtil(root, path, replacement, (node) => this.cloneMathjsNode(node));
   }
 
   private getOperatorNode(node: MathStepsNode): MathStepsNode & { type: 'OperatorNode'; op: string; args: MathStepsNode[] } | null {
