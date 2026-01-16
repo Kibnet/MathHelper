@@ -1251,8 +1251,12 @@ export class MathStepsEngine {
         // Прозрачно разворачиваем ParenthesisNode, добавленные при нормализации.
         // Это нужно для совместимости путей, сгенерированных из оригинального AST,
         // с нормализованным AST (где добавляются скобки).
-        while (current && this.isParenthesisNode(current) && current.content) {
-          current = current.content;
+        // НО: не разворачиваем если следующий сегмент - 'content', т.к. путь явно указывает на содержимое.
+        const nextSegment = path[index + 2];
+        if (nextSegment !== 'content') {
+          while (current && this.isParenthesisNode(current) && current.content) {
+            current = current.content;
+          }
         }
         index += 2;
         continue;
@@ -1283,8 +1287,11 @@ export class MathStepsEngine {
         if (index === next) {
           const restPath = path.slice(2);
           // Прозрачно обрабатываем ParenthesisNode: если arg - это скобки,
-          // а остаток пути не пустой, заменяем внутри content скобок.
-          if (this.isParenthesisNode(arg) && arg.content && restPath.length > 0) {
+          // а остаток пути не пустой И НЕ начинается с 'content',
+          // заменяем внутри content скобок.
+          // Если путь явно содержит 'content', пропускаем прозрачную обработку.
+          const nextSegment = restPath[0];
+          if (this.isParenthesisNode(arg) && arg.content && restPath.length > 0 && nextSegment !== 'content') {
             const parenClone = this.cloneMathjsNode(arg);
             parenClone.content = this.replaceNodeAtPath(arg.content, restPath, replacement);
             return parenClone;

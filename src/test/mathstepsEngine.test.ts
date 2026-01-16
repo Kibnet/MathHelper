@@ -241,4 +241,29 @@ describe('MathStepsEngine', () => {
     // Должны быть операции (хотя бы custom: wrap, +0, *1)
     expect(ops.length).toBeGreaterThan(0);
   });
+
+  it('должен возвращать операции для 4 в выражении 3*-(4)', () => {
+    // Баг: при выборе "4" в выражении "3*-(4)" нет доступных операций
+    // Причина: replaceNodeAtPath некорректно обрабатывал путь с сегментом 'content'
+    // когда ParenthesisNode уже был прозрачно развёрнут.
+    // Решение: пропускать прозрачную обработку если путь явно содержит 'content'
+    const engine = new MathStepsEngine();
+    const expression = '3*-(4)';
+    
+    const node = engine.parse(expression);
+    const normalizedExpression = engine.stringify(node);
+    
+    // Получаем подвыражения
+    const subexpressions = extractNodesFromMathStepsAst(node, normalizedExpression);
+    
+    // Находим подвыражение "4" (константу внутри унарного минуса)
+    const innerFour = subexpressions.find(s => s.text === '4');
+    expect(innerFour).toBeDefined();
+    
+    // Получаем операции для "4"
+    const ops = engine.listOps(normalizedExpression, innerFour!.path!);
+    
+    // Должны быть операции (хотя бы custom: wrap, +0, *1)
+    expect(ops.length).toBeGreaterThan(0);
+  });
 });
