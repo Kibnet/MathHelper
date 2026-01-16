@@ -137,6 +137,7 @@ export interface Subexpression {
   node: ASTNode | MathStepsNode;
   length: number;
   rules?: TransformationRule[];
+  operations?: MathStepsOperation[];
   path?: MathStepsPath;
   level?: number;
 }

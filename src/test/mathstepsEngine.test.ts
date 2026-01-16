@@ -82,6 +82,22 @@ describe('MathStepsEngine', () => {
     expect(engine.stringify(withoutZero.newNode).replace(/\s+/g, '')).toBe('a+b');
   });
 
+  it('should add zero with parentheses in preview', () => {
+    const engine = new MathStepsEngine();
+    const operations = engine.listOps('x', []);
+    const addZero = operations.find(op => op.id.startsWith('custom:ADD_ADDING_ZERO'));
+    expect(addZero).toBeTruthy();
+    const preview = addZero!.preview.replace(/\s+/g, '');
+    expect(preview).toBe('(x+0)');
+  });
+
+  it('should expose legacy rules as custom operations', () => {
+    const engine = new MathStepsEngine();
+    const operations = engine.listOps('2 + 3', []);
+    const legacy = operations.find(op => op.id.startsWith('custom:LEGACY_'));
+    expect(legacy).toBeTruthy();
+  });
+
   it('should extract subexpressions from mathjs AST', () => {
     const engine = new MathStepsEngine();
     const node = engine.parse('2 + 3');
