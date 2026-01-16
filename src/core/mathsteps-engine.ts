@@ -423,10 +423,11 @@ export class MathStepsEngine {
       if (side === 'left' || side === 'right') {
         const sideExpression = side === 'left' ? equation.left : equation.right;
         const sidePath = selectionPath.slice(1) as MathStepsPath;
+        const sideNode = this.parse(sideExpression);
         const simplifyOps = this.listSimplifyOps(sideExpression, sidePath, selectionPath);
         const existingPreviews = new Set(simplifyOps.map((op) => op.preview));
         operations.push(...simplifyOps);
-        operations.push(...this.listCustomOps(sideExpression, sidePath, selectionPath, existingPreviews));
+        operations.push(...this.listCustomOps(sideExpression, sideNode, sidePath, selectionPath, existingPreviews));
       } else if (selectionPath.length === 0) {
         operations.push(...this.listSolveOps(expression));
       }
@@ -434,10 +435,11 @@ export class MathStepsEngine {
       return this.sortOperations(this.dedupeOperations(operations));
     }
 
+    const rootNode = this.parse(expression);
     const simplifyOps = this.listSimplifyOps(expression, selectionPath, selectionPath);
     const existingPreviews = new Set(simplifyOps.map((op) => op.preview));
     operations.push(...simplifyOps);
-    operations.push(...this.listCustomOps(expression, selectionPath, selectionPath, existingPreviews));
+    operations.push(...this.listCustomOps(expression, rootNode, selectionPath, selectionPath, existingPreviews));
     return this.sortOperations(this.dedupeOperations(operations));
   }
 
@@ -665,15 +667,11 @@ export class MathStepsEngine {
 
   private listCustomOps(
     expression: string,
+    rootNode: MathStepsNode,
     selectionPath: MathStepsPath,
     fullPath: MathStepsPath,
     existingPreviews?: Set<string>
   ): MathStepsOperation[] {
-    const rootNode = this.parseMathjsNode(expression);
-    if (!rootNode) {
-      return [];
-    }
-
     const targetNode = this.getNodeAtPath(rootNode, selectionPath);
     if (!targetNode) {
       return [];
@@ -1250,6 +1248,12 @@ export class MathStepsEngine {
           return null;
         }
         current = current.args[argIndex];
+        // Прозрачно разворачиваем ParenthesisNode, добавленные при нормализации.
+        // Это нужно для совместимости путей, сгенерированных из оригинального AST,
+        // с нормализованным AST (где добавляются скобки).
+        while (current && this.isParenthesisNode(current) && current.content) {
+          current = current.content;
+        }
         index += 2;
         continue;
       }
@@ -1277,7 +1281,15 @@ export class MathStepsEngine {
       const clone = this.cloneMathjsNode(root);
       clone.args = root.args.map((arg, index) => {
         if (index === next) {
-          return this.replaceNodeAtPath(arg, path.slice(2), replacement);
+          const restPath = path.slice(2);
+          // Прозрачно обрабатываем ParenthesisNode: если arg - это скобки,
+          // а остаток пути не пустой, заменяем внутри content скобок.
+          if (this.isParenthesisNode(arg) && arg.content && restPath.length > 0) {
+            const parenClone = this.cloneMathjsNode(arg);
+            parenClone.content = this.replaceNodeAtPath(arg.content, restPath, replacement);
+            return parenClone;
+          }
+          return this.replaceNodeAtPath(arg, restPath, replacement);
         }
         return this.cloneMathjsNode(arg);
       });

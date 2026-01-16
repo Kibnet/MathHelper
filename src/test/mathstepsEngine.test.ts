@@ -216,4 +216,29 @@ describe('MathStepsEngine', () => {
       expect(ops).toBeDefined();
     }
   });
+
+  it('должен возвращать операции для внутренней 1 в выражении --1', () => {
+    // Баг: при выборе "1" в выражении "--1" нет доступных операций
+    // Причина: mathsteps создаёт ParenthesisNode при парсинге "-(-1)",
+    // что делает путь ["args", 0, "args", 0] невалидным.
+    // Решение: fallback на custom операции когда simplify недоступны
+    const engine = new MathStepsEngine();
+    const expression = '--1';
+    
+    const node = engine.parse(expression);
+    const normalizedExpression = engine.stringify(node);
+    
+    // Получаем подвыражения
+    const subexpressions = extractNodesFromMathStepsAst(node, normalizedExpression);
+    
+    // Находим подвыражение "1" (константу внутри двойного минуса)
+    const innerOne = subexpressions.find(s => s.text === '1');
+    expect(innerOne).toBeDefined();
+    
+    // Получаем операции для "1"
+    const ops = engine.listOps(normalizedExpression, innerOne!.path!);
+    
+    // Должны быть операции (хотя бы custom: wrap, +0, *1)
+    expect(ops.length).toBeGreaterThan(0);
+  });
 });
