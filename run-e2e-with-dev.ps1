@@ -72,8 +72,8 @@ function Get-HealthUrl {
     param([string]$BaseUrl)
 
     if ($BaseUrl -match "\.html$") { return $BaseUrl }
-    if ($BaseUrl.EndsWith("/")) { return "$BaseUrl" + "expression-editor-modular.html" }
-    return "$BaseUrl/expression-editor-modular.html"
+    if ($BaseUrl.EndsWith("/")) { return "$BaseUrl" + "index.html" }
+    return "$BaseUrl/index.html"
 }
 
 function Wait-ForServer {

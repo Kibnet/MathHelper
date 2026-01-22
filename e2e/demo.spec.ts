@@ -25,7 +25,7 @@ test('🎬 Демо: взаимодействие с приложением', as
   });
   
   console.log('📄 Шаг 1: Загрузка страницы...');
-  await page.goto('expression-editor-modular.html');
+  await page.goto('/');
   await page.waitForLoadState('networkidle');
   console.log('✅ Страница загружена\n');
   
@@ -74,7 +74,7 @@ test('🎬 Демо: взаимодействие с приложением', as
 test('🔍 Демо: инспекция DOM и выполнение JavaScript', async ({ page }) => {
   console.log('\n🔬 Инспекция приложения...\n');
   
-  await page.goto('expression-editor-modular.html');
+  await page.goto('/');
   await page.waitForLoadState('domcontentloaded');
   
   // Выполняем JavaScript в контексте страницы

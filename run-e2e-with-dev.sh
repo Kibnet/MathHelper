@@ -14,7 +14,7 @@ TIMEOUT_SECONDS="${E2E_STARTUP_TIMEOUT_SECONDS:-60}"
 if [[ "$BASE_URL" == *.html ]]; then
   HEALTH_URL="$BASE_URL"
 else
-  HEALTH_URL="${BASE_URL%/}/expression-editor-modular.html"
+  HEALTH_URL="${BASE_URL%/}/index.html"
 fi
 
 stop_processes_on_port() {

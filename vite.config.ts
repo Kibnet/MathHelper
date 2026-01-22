@@ -14,14 +14,11 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    emptyOutDir: true,
-    rollupOptions: {
-      input: 'expression-editor-modular.html'
-    }
+    emptyOutDir: true
   },
   server: {
     host: '0.0.0.0',
     port: 8000,
-    open: '/expression-editor-modular.html'
+    open: true
   }
 })

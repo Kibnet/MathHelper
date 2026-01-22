@@ -59,7 +59,7 @@ powershell -ExecutionPolicy Bypass -File .\\run-e2e-with-dev.ps1
 **Поведение:**
 - Останавливает процессы, которые слушают `E2E_PORT`
 - Запускает dev‑сервер
-- Ждёт готовность страницы `expression-editor-modular.html`
+- Ждёт готовность страницы `index.html`
 - Запускает E2E и гасит сервер в конце
 
 **Переменные окружения (с fallback):**
@@ -112,7 +112,7 @@ npm run test:e2e
 
 ```bash
 # Windows PowerShell:
-curl http://localhost:8000/expression-editor-modular.html
+curl http://localhost:8000/
 
 # Должно вернуть HTML страницы
 ```
@@ -201,7 +201,7 @@ npm run test:e2e:with-dev
 
 # Либо вручную:
 npm run dev
-curl http://localhost:8000/expression-editor-modular.html
+curl http://localhost:8000/
 npm run test:e2e
 ```
 
@@ -248,7 +248,7 @@ test('мой тест', async ({ page }) => {
     logs.push(msg.text());
   });
   
-  await page.goto('/expression-editor-modular.html');
+  await page.goto('/');
   
   // Ваши действия...
   
