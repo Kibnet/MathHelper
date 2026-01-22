@@ -1188,6 +1188,129 @@ test.describe('Тестирование трансформаций на вирт
     console.log('✅ Фреймы после трансформации совпадают с фреймами после пересборки');
   });
 
+  test('должен отображать вычитание вместо сложения с унарным минусом после трансформации', async ({ page }) => {
+    // Регрессионный тест: после применения "Вынести минус из произведения"
+    // визуальное отображение должно совпадать с текстом в поле ввода
+    console.log('\n=== ТЕСТ: Отображение вычитания вместо + унарный минус ===');
+    
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
+    
+    const expressionInput = page.locator('#expressionInput');
+    
+    // Вводим выражение 2x + 3 * -(4)
+    await expressionInput.clear();
+    await expressionInput.click();
+    await expressionInput.fill('2x + 3 * -(4)');
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    console.log('Введено выражение: 2x + 3 * -(4)');
+    
+    // Кликаем на фрейм "3 * -(4)"
+    const frame3mul4 = getFrameByPath(page, 'args.1');
+    await expect(frame3mul4).toHaveCount(1);
+    await frame3mul4.click();
+    await page.waitForTimeout(300);
+    console.log('Кликнули на фрейм 3 * -(4)');
+    
+    // Ищем команду "Вынести минус из произведения" (pull_unary_minus_mul)
+    // changeType начинается с LEGACY_pull_unary_minus_mul
+    const pullMinusCommand = page.locator('#commandsPanel [data-testid="command-item"][data-change-type^="LEGACY_pull_unary_minus_mul"]');
+    const commandExists = await pullMinusCommand.count() > 0;
+    console.log('Команда pull_unary_minus_mul найдена:', commandExists);
+    
+    if (commandExists) {
+      await pullMinusCommand.first().click();
+      await page.waitForTimeout(500);
+      
+      const inputValue = await expressionInput.inputValue();
+      console.log('Значение в поле ввода:', inputValue);
+      
+      // Получаем текст визуального блока
+      const expressionText = page.locator('#expressionText');
+      const visualText = await expressionText.textContent();
+      console.log('Визуальный текст:', visualText);
+      
+      // Оба должны содержать "- (" (вычитание), а не "+ -" (сложение с унарным минусом)
+      expect(inputValue).toContain('- (');
+      expect(inputValue).not.toContain('+ -');
+      
+      // Визуальный блок не должен содержать "+-" или "+−"
+      expect(visualText).not.toContain('+-');
+      expect(visualText).not.toContain('+−');
+      
+      console.log('✅ Визуальное отображение корректно показывает вычитание');
+    } else {
+      console.log('Команда не найдена, пропускаем проверку');
+    }
+  });
+
+  test('должен очищать панель команд при ручном изменении выражения и нажатии "Построить"', async ({ page }) => {
+    // Регрессионный тест: раньше после применения команды и последующего
+    // ручного изменения выражения панель команд не очищалась
+    console.log('\n=== ТЕСТ: Очистка панели команд при ручном изменении ===');
+    
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
+    
+    const expressionInput = page.locator('#expressionInput');
+    const commandsPanel = page.locator('#commandsPanel');
+    
+    // 1. Вводим выражение с числами для вычисления
+    await expressionInput.clear();
+    await expressionInput.click();
+    await expressionInput.fill('2.4 + 1');
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    console.log('Введено выражение: 2.4 + 1');
+    
+    // 2. Кликаем на фрейм "2.4 + 1" (корень)
+    const rootFrame = getFrameByPath(page, 'root');
+    await expect(rootFrame).toHaveCount(1);
+    await rootFrame.click();
+    await page.waitForTimeout(300);
+    console.log('Кликнули на корневой фрейм');
+    
+    // 3. Проверяем что команды появились
+    const commandItems = getCommandItems(page);
+    const commandCountBefore = await commandItems.count();
+    console.log('Количество команд после выбора фрейма:', commandCountBefore);
+    expect(commandCountBefore).toBeGreaterThan(0);
+    
+    // 4. Вручную изменяем текст выражения
+    await expressionInput.clear();
+    await expressionInput.click();
+    await expressionInput.fill('a + b');
+    console.log('Вручную изменили выражение на: a + b');
+    
+    // 5. Нажимаем "Построить"
+    await page.locator('#buildBtn').click();
+    await page.waitForTimeout(500);
+    console.log('Нажали "Построить"');
+    
+    // 6. ГЛАВНАЯ ПРОВЕРКА: панель команд должна быть очищена (только placeholder)
+    const commandCountAfter = await commandItems.count();
+    console.log('Количество команд после пересборки:', commandCountAfter);
+    
+    // Панель команд должна содержать только placeholder
+    const panelText = await commandsPanel.textContent();
+    console.log('Текст панели команд:', panelText);
+    expect(commandCountAfter).toBe(0);
+    expect(panelText).toContain('Выберите фрейм');
+    
+    // 7. Проверяем что фреймы соответствуют новому выражению
+    const frames = await getFrames(page).evaluateAll(frames =>
+      frames.map(f => f.getAttribute('data-text'))
+    );
+    console.log('Фреймы нового выражения:', frames);
+    expect(frames).toContain('a + b');
+    expect(frames).not.toContain('2.4 + 1');
+    
+    console.log('✅ Панель команд корректно очищается при ручном изменении');
+  });
+
   test('должен корректно показывать операции для всех подвыражений в 1---1', async ({ page }) => {
     // Регрессионный тест: раньше при выборе второй "1" в "1---1" 
     // возникало исключение "Некорректный путь к args"

@@ -139,6 +139,10 @@ export class ExpressionEditorApp {
       
       // Отображаем выражение с AST деревом
       this.expressionDisplay.render(exprString, node);
+      
+      // Очищаем панель команд - выражение изменилось, старые команды неактуальны
+      this.commandPanel.clear();
+      
       this.hideError();
     } catch (error) {
       this.showError((error as Error).message);
@@ -196,13 +200,15 @@ export class ExpressionEditorApp {
 
       const result = this.mathStepsEngine.apply(this.currentExpression, operation.selectionPath, operation.id);
       const newExpr = this.mathStepsEngine.stringify(result.newNode);
+      // Перепарсить для нормализации AST - без этого рендеринг может быть неправильным
+      const normalizedNode = this.mathStepsEngine.parse(newExpr);
       this.currentExpression = newExpr;
 
       this.descriptionPanel.showRule(operation);
-      this.historyPanel.addState(newExpr, operation.name, result.newNode, assumptions);
+      this.historyPanel.addState(newExpr, operation.name, normalizedNode, assumptions);
 
       this.expressionInput.value = newExpr;
-      this.expressionDisplay.render(newExpr, result.newNode);
+      this.expressionDisplay.render(newExpr, normalizedNode);
       
       // Автовыбор подвыражения по тому же пути
       const selection = this.expressionDisplay.selectFrameByPath(operation.selectionPath);

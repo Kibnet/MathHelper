@@ -149,6 +149,15 @@ export class ExpressionDisplay {
         if (index > 0) {
           if (op === '*' && this.shouldElideMultiplication(node, args[index - 1], arg)) {
             // Не добавляем символ умножения для простых случаев
+          } else if (op === '+' && this.isUnaryMinus(arg)) {
+            // Преобразуем "a + (-b)" в "a - b" для визуального отображения
+            wrapper.appendChild(this.createTokenSpan('-', 'operator'));
+            // Рендерим содержимое унарного минуса напрямую (без знака минус)
+            const unaryArg = (arg as MathStepsNode).args?.[0];
+            if (unaryArg) {
+              wrapper.appendChild(this.renderNode(unaryArg, [...path, 'args', index, 'args', 0], renderedNodes));
+            }
+            return; // Пропускаем стандартный рендеринг этого аргумента
           } else {
             const operatorToken = op === '*' ? '·' : op;
             wrapper.appendChild(this.createTokenSpan(operatorToken, 'operator'));
@@ -505,5 +514,12 @@ export class ExpressionDisplay {
 
   private isImplicitMultiplicationNode(node: MathStepsNode | EquationNode): node is MathStepsNode & { type: 'OperatorNode' } {
     return this.isOperatorNode(node) && node.op === '*' && node.implicit === true;
+  }
+
+  /**
+   * Проверяет, является ли узел унарным минусом
+   */
+  private isUnaryMinus(node: MathStepsNode | EquationNode): boolean {
+    return this.isOperatorNode(node) && node.op === '-' && (node.args?.length === 1);
   }
 }

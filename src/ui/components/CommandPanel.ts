@@ -138,6 +138,7 @@ export class CommandPanel {
    */
   clear(): void {
     this.currentSelection = null;
+    this.container.innerHTML = '';
     this.showPlaceholder('Выберите фрейм для просмотра преобразований');
   }
 
