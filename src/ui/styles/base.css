@@ -18,21 +18,33 @@
 body {
   margin: 0;
   height: 100vh;
+  height: 100dvh; /* dynamic viewport height для мобильных */
   overflow: hidden;
   font-family: system-ui, -apple-system, sans-serif;
-  background: radial-gradient(circle at top left, #1d4ed8 0, transparent 55%),
-              radial-gradient(circle at bottom right, #0f766e 0, transparent 55%),
-              var(--bg);
+  background: var(--bg);
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* Фиксированный фон - не скроллится с контентом */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top left, #1d4ed8 0, transparent 55%),
+              radial-gradient(circle at bottom right, #0f766e 0, transparent 55%),
+              var(--bg);
+  z-index: -1;
+  pointer-events: none;
 }
 
 @media (max-width: 1024px) {
   body {
-    height: auto;
-    min-height: 100vh;
-    overflow: auto;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
   }
 }
 

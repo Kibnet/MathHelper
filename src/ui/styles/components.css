@@ -158,32 +158,78 @@
 
 @media (max-width: 1024px) {
   .app-layout {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "history"
-      "expression"
-      "commands";
-    height: auto;
-    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
+    overflow: hidden;
   }
 
-  .left-panel,
+  /* Центральная панель - основная область, занимает доступное пространство */
+  .center-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    order: 1;
+  }
+
+  .expression-section {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* Правая панель - история и описание, компактно */
   .right-panel {
+    flex: 0 0 auto;
+    max-height: 25vh;
+    min-height: 80px;
     border: none;
     border-top: 1px solid var(--border-subtle);
-  }
-
-  .left-panel {
-    padding: 15px 20px;
-  }
-
-  .right-panel {
+    display: flex;
+    flex-direction: row;
     gap: 0;
+    order: 2;
   }
 
   .history-section,
   .description-section {
-    border-bottom: 1px solid var(--border-subtle);
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    border-bottom: none;
+    padding: 10px 12px;
+  }
+
+  .history-section {
+    border-right: 1px solid var(--border-subtle);
+  }
+
+  .history-section h3,
+  .description-section h3 {
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+  }
+
+  /* Левая панель - команды, сворачиваемая */
+  .left-panel {
+    flex: 0 0 auto;
+    max-height: 30vh;
+    min-height: 60px;
+    border: none;
+    border-top: 1px solid var(--border-subtle);
+    padding: 10px 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    order: 3;
+  }
+
+  .left-panel .commands-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
 
   .panel-toggle {
@@ -191,23 +237,36 @@
     align-items: center;
     justify-content: center;
   }
+
+  /* Свёрнутые панели занимают минимум места */
+  .collapsible-panel.collapsed {
+    flex: 0 0 auto;
+    max-height: none;
+    min-height: 0;
+  }
+
+  .collapsible-panel.collapsed .panel-content {
+    display: none;
+  }
 }
 
 @media (max-width: 640px) {
   .app-header {
-    padding: 12px 16px;
+    padding: 8px 12px;
   }
 
   .app-header h1 {
-    font-size: 1.4rem;
+    font-size: 1.2rem;
   }
 
   .input-section {
-    padding: 12px 16px;
+    padding: 10px 12px;
   }
 
   .input-group {
     flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
   }
 
   .input-group button,
@@ -216,13 +275,30 @@
   }
 
   .expression-section {
-    padding: 16px;
+    padding: 12px;
   }
 
   .expression-text {
-    font-size: 1.05rem;
+    font-size: 1rem;
     white-space: pre-wrap;
     word-break: break-word;
+    padding: 10px;
+  }
+
+  /* Для очень маленьких экранов - история и описание в колонку */
+  .right-panel {
+    flex-direction: column;
+    max-height: 30vh;
+  }
+
+  .history-section {
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    max-height: 50%;
+  }
+
+  .description-section {
+    max-height: 50%;
   }
 }
 
