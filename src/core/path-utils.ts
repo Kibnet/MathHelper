@@ -237,7 +237,7 @@ export function replaceNodeAtPath(
  * @param root - корневой узел для нормализации
  * @returns true если пути эквивалентны
  */
-export function pathsEqual(path1: MathStepsPath, path2: MathStepsPath, root?: MathStepsNode): boolean {
+export function pathsEqual(path1: MathStepsPath, path2: MathStepsPath): boolean {
   // Простое сравнение без нормализации
   if (path1.length !== path2.length) {
     return false;

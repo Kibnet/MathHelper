@@ -24,8 +24,7 @@ import { ExpressionParser, generateId } from './parser.js';
 import { cloneNode, expressionToString, nodesEqual } from '../utils/helpers.js';
 import { 
   getNodeAtPath as getNodeAtPathUtil, 
-  replaceNodeAtPath as replaceNodeAtPathUtil,
-  isParenthesisNode as isParenthesisNodeUtil
+  replaceNodeAtPath as replaceNodeAtPathUtil
 } from './path-utils.js';
 
 type EquationSplit = {
@@ -1809,13 +1808,7 @@ function getLegacyApplicableRules(node: ASTNode): TransformationRule[] {
     apply: applyDoubleNegation
   });
 
-  rules.push({
-    id: 'multiply_by_one',
-    name: '+ Умножить на 1',
-    category: '5. Обертывание',
-    preview: 'a → a*1',
-    apply: multiplyByOne
-  });
+
 
   rules.push({
     id: 'divide_by_one',
@@ -2203,17 +2196,7 @@ function applyDoubleNegation(node: ASTNode): UnaryNode {
   };
 }
 
-function multiplyByOne(node: ASTNode): OperatorNode {
-  return {
-    id: generateId(),
-    type: 'operator',
-    value: '*',
-    children: [
-      node,
-      { id: generateId(), type: 'constant', value: 1 }
-    ]
-  };
-}
+
 
 function divideByOne(node: ASTNode): OperatorNode {
   return {
