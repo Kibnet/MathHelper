@@ -98,4 +98,78 @@ describe('ExpressionDisplay', () => {
       container.innerHTML = '';
     }
   });
+
+  describe('selectFrameByPath', () => {
+    it('возвращает selection для существующего пути', () => {
+      const engine = new MathStepsEngine();
+      const ast = engine.parse('2 + 3');
+      const exprString = engine.stringify(ast);
+      
+      const display = new ExpressionDisplay('test-container');
+      display.render(exprString, ast);
+      
+      // Выбираем корневой узел (пустой путь)
+      const selection = display.selectFrameByPath([]);
+      
+      expect(selection).not.toBeNull();
+      expect(selection!.path).toEqual([]);
+      expect(selection!.text).toBeTruthy();
+      
+      // Проверяем, что фрейм получил класс active
+      const activeFrame = document.querySelector('.expression-range.active');
+      expect(activeFrame).toBeTruthy();
+    });
+
+    it('возвращает selection для вложенного пути', () => {
+      const engine = new MathStepsEngine();
+      const ast = engine.parse('2 + 3');
+      const exprString = engine.stringify(ast);
+      
+      const display = new ExpressionDisplay('test-container');
+      display.render(exprString, ast);
+      
+      // Выбираем первый аргумент (2)
+      const selection = display.selectFrameByPath(['args', 0]);
+      
+      expect(selection).not.toBeNull();
+      expect(selection!.path).toEqual(['args', 0]);
+    });
+
+    it('возвращает null для несуществующего пути', () => {
+      const engine = new MathStepsEngine();
+      const ast = engine.parse('2 + 3');
+      const exprString = engine.stringify(ast);
+      
+      const display = new ExpressionDisplay('test-container');
+      display.render(exprString, ast);
+      
+      // Пытаемся выбрать несуществующий путь
+      const selection = display.selectFrameByPath(['args', 99]);
+      
+      expect(selection).toBeNull();
+    });
+
+    it('снимает active с предыдущего фрейма при выборе нового', () => {
+      const engine = new MathStepsEngine();
+      const ast = engine.parse('2 + 3');
+      const exprString = engine.stringify(ast);
+      
+      const display = new ExpressionDisplay('test-container');
+      display.render(exprString, ast);
+      
+      // Выбираем первый фрейм
+      display.selectFrameByPath([]);
+      const firstActive = document.querySelectorAll('.expression-range.active');
+      expect(firstActive.length).toBe(1);
+      
+      // Выбираем другой фрейм
+      display.selectFrameByPath(['args', 0]);
+      const secondActive = document.querySelectorAll('.expression-range.active');
+      expect(secondActive.length).toBe(1);
+      
+      // Проверяем что это разные фреймы
+      const activeFrame = document.querySelector('.expression-range.active') as HTMLElement;
+      expect(activeFrame.dataset.pathKey).toBe('args.0');
+    });
+  });
 });

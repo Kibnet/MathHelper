@@ -203,7 +203,15 @@ export class ExpressionEditorApp {
 
       this.expressionInput.value = newExpr;
       this.expressionDisplay.render(newExpr, result.newNode);
-      this.commandPanel.clear();
+      
+      // Автовыбор подвыражения по тому же пути
+      const selection = this.expressionDisplay.selectFrameByPath(operation.selectionPath);
+      if (selection) {
+        const operations = this.mathStepsEngine.listOps(this.currentExpression, selection.path);
+        this.commandPanel.showCommands(selection, operations);
+      } else {
+        this.commandPanel.clear();
+      }
     } catch (error) {
       this.showError('Ошибка преобразования: ' + (error as Error).message);
     }

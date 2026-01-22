@@ -61,6 +61,26 @@ export class ExpressionDisplay {
     this.container.innerHTML = `<p class="placeholder">${message}</p>`;
   }
 
+  /**
+   * Программно выбирает фрейм по пути и возвращает selection или null
+   */
+  selectFrameByPath(path: MathStepsPath): FrameSelection | null {
+    const pathKey = this.pathToKey(path);
+    const frame = this.container.querySelector<HTMLElement>(`[data-path-key="${pathKey}"]`);
+    if (!frame) {
+      return null;
+    }
+    
+    // Снять выделение с других фреймов
+    document.querySelectorAll('.expression-range').forEach(f => f.classList.remove('active'));
+    frame.classList.add('active');
+    
+    return {
+      text: frame.dataset.text || '',
+      path: path
+    };
+  }
+
   private debugLog(...args: unknown[]): void {
     if (!this.debug) {
       return;
