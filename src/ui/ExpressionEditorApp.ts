@@ -9,6 +9,7 @@ import { HistoryPanel } from './components/HistoryPanel.js';
 import { UtilityMenu, type UtilityType } from './components/UtilityMenu.js';
 import { FactorizationTool } from './components/FactorizationTool.js';
 import { FractionConverterTool } from './components/FractionConverterTool.js';
+import { LcmTool } from './components/LcmTool.js';
 import type { FrameSelection, MathStepsOperation } from '../types/index.js';
 
 export class ExpressionEditorApp {
@@ -21,6 +22,7 @@ export class ExpressionEditorApp {
   // Плавающие панели утилит
   private factorizationTool: FactorizationTool | null = null;
   private fractionTool: FractionConverterTool | null = null;
+  private lcmTool: LcmTool | null = null;
   
   // DOM элементы
   private expressionInput: HTMLInputElement;
@@ -270,6 +272,15 @@ export class ExpressionEditorApp {
         }
         this.fractionTool.show(triggerButton);
         break;
+        
+      case 'lcm':
+        if (!this.lcmTool) {
+          this.lcmTool = new LcmTool({
+            onClose: () => {}
+          });
+        }
+        this.lcmTool.show(triggerButton);
+        break;
     }
   }
 
@@ -282,6 +293,9 @@ export class ExpressionEditorApp {
     }
     if (this.fractionTool?.getIsVisible()) {
       this.fractionTool.hide();
+    }
+    if (this.lcmTool?.getIsVisible()) {
+      this.lcmTool.hide();
     }
   }
 

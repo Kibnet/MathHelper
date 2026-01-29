@@ -2,7 +2,7 @@
  * Выпадающее меню утилит в заголовке
  */
 
-export type UtilityType = 'factorization' | 'fraction';
+export type UtilityType = 'factorization' | 'fraction' | 'lcm';
 
 export interface UtilityMenuOptions {
   /** Колбэк при выборе утилиты */
@@ -65,6 +65,10 @@ export class UtilityMenu {
       <button type="button" class="utility-menu-item" data-utility="fraction" role="menuitem">
         <span class="utility-item-icon">➗</span>
         <span class="utility-item-text">Конвертер дробей</span>
+      </button>
+      <button type="button" class="utility-menu-item" data-utility="lcm" role="menuitem">
+        <span class="utility-item-icon">🔗</span>
+        <span class="utility-item-text">НОК (общее кратное)</span>
       </button>
     `;
     return dropdown;
