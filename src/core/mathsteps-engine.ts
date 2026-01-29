@@ -2199,12 +2199,16 @@ function applyDoubleNegation(node: ASTNode): UnaryNode {
 
 
 function divideByOne(node: ASTNode): OperatorNode {
+  // Оборачиваем в скобки если это оператор с низким приоритетом (+ или -)
+  // чтобы избежать неправильного приоритета: "1 + 0" → "(1 + 0)/1", а не "1 + 0/1"
+  const needsParens = node.type === 'operator' && (node.value === '+' || node.value === '-');
+  const wrappedNode = needsParens ? wrapInGroupLocal(node) : node;
   return {
     id: generateId(),
     type: 'operator',
     value: '/',
     children: [
-      node,
+      wrappedNode,
       { id: generateId(), type: 'constant', value: 1 }
     ]
   };

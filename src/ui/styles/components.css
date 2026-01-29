@@ -9,8 +9,16 @@
   flex-shrink: 0;
 }
 
+.app-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
 .app-header h1 {
-  margin: 0 0 5px;
+  margin: 0;
   font-size: 1.8rem;
   background: linear-gradient(135deg, #38bdf8, #22c55e);
   -webkit-background-clip: text;
@@ -119,7 +127,7 @@
   align-items: flex-start;
 }
 
-/* Правая панель - История и Описание */
+/* Правая панель - История */
 .right-panel {
   grid-area: history;
   background: var(--bg-card);
@@ -133,27 +141,12 @@
   flex: 1;
   padding: 15px;
   overflow-y: auto;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.description-section {
-  flex: 1;
-  padding: 15px;
-  overflow-y: auto;
-}
-
-.history-section h3,
-.description-section h3 {
-  margin: 0 0 12px;
-  font-size: 0.95rem;
 }
 
 .history-section h3 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
   color: var(--success);
-}
-
-.description-section h3 {
-  color: #f59e0b;
 }
 
 @media (max-width: 1024px) {
@@ -180,34 +173,24 @@
     overflow-y: auto;
   }
 
-  /* Правая панель - история и описание, компактно */
+  /* Правая панель - история */
   .right-panel {
     flex: 0 0 auto;
     max-height: 25vh;
     min-height: 80px;
     border: none;
     border-top: 1px solid var(--border-subtle);
-    display: flex;
-    flex-direction: row;
-    gap: 0;
     order: 2;
   }
 
-  .history-section,
-  .description-section {
+  .history-section {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    border-bottom: none;
     padding: 10px 12px;
   }
 
-  .history-section {
-    border-right: 1px solid var(--border-subtle);
-  }
-
-  .history-section h3,
-  .description-section h3 {
+  .history-section h3 {
     font-size: 0.85rem;
     margin-bottom: 8px;
   }
@@ -283,22 +266,6 @@
     white-space: pre-wrap;
     word-break: break-word;
     padding: 10px;
-  }
-
-  /* Для очень маленьких экранов - история и описание в колонку */
-  .right-panel {
-    flex-direction: column;
-    max-height: 30vh;
-  }
-
-  .history-section {
-    border-right: none;
-    border-bottom: 1px solid var(--border-subtle);
-    max-height: 50%;
-  }
-
-  .description-section {
-    max-height: 50%;
   }
 }
 
@@ -603,6 +570,23 @@
   word-break: break-all;
 }
 
+/* Подсветка изменений в превью команд */
+.command-preview mark.preview-changed {
+  background: rgba(34, 197, 94, 0.3);
+  color: var(--success);
+  padding: 1px 2px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+.command-preview mark.preview-deleted {
+  background: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 0.7em;
+}
+
 .command-category-first {
   margin-top: 0;
   border-top: none;
@@ -647,13 +631,317 @@
   margin-top: 4px;
 }
 
-/* Описание */
-.description-content {
-  color: var(--text-muted);
-  line-height: 1.5;
-  font-size: 0.9rem;
+/* ===== Меню утилит ===== */
+.utility-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.description-content strong {
+.utility-menu-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(148, 163, 184, 0.15);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
   color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.utility-menu-button:hover {
+  background: rgba(148, 163, 184, 0.25);
+  border-color: var(--accent);
+}
+
+.utility-menu-button.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.utility-menu-icon {
+  font-size: 1rem;
+}
+
+.utility-menu-arrow {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  transition: transform 0.2s;
+}
+
+.utility-menu-button.active .utility-menu-arrow {
+  transform: rotate(180deg);
+}
+
+.utility-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  min-width: 200px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.2s;
+  z-index: 1000;
+}
+
+.utility-menu-dropdown.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.utility-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.utility-menu-item:first-child {
+  border-radius: 7px 7px 0 0;
+}
+
+.utility-menu-item:last-child {
+  border-radius: 0 0 7px 7px;
+}
+
+.utility-menu-item:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.utility-item-icon {
+  font-size: 1.1rem;
+}
+
+/* ===== Плавающие панели ===== */
+.floating-panel {
+  position: fixed;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-15px) scale(0.95);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1001;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.floating-panel.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+.floating-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: rgba(148, 163, 184, 0.08);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.floating-panel-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.floating-panel-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: rgba(148, 163, 184, 0.1);
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.floating-panel-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.floating-panel-content {
+  padding: 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ===== Стили инструментов ===== */
+.tool-input-group {
+  margin-bottom: 16px;
+}
+
+.tool-input-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.tool-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.tool-input-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-calculate-btn {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  white-space: nowrap;
+}
+
+.fraction-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.fraction-numerator,
+.fraction-denominator {
+  width: 90px !important;
+  flex: 0 0 auto !important;
+  text-align: center;
+}
+
+.fraction-divider {
+  font-size: 1.4rem;
+  color: var(--text-muted);
+  font-weight: 300;
+}
+
+.tool-error {
+  padding: 10px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #ef4444;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  display: none;
+}
+
+.tool-error.visible {
+  display: block;
+}
+
+.tool-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.result-section {
+  background: rgba(148, 163, 184, 0.06);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.result-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.result-value {
+  font-family: 'Courier New', monospace;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.result-prime {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.result-decimal {
+  color: var(--success);
+}
+
+.result-simplified {
+  color: var(--accent);
+}
+
+.result-mixed {
+  color: #a78bfa;
+}
+
+.result-pairs,
+.result-divisors {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.result-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  background: rgba(148, 163, 184, 0.06);
+  border-radius: 6px;
+  border-left: 3px solid var(--accent);
+}
+
+/* Адаптив для плавающих панелей */
+@media (max-width: 640px) {
+  .floating-panel {
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: none;
+  }
+  
+  .fraction-input-row {
+    flex-wrap: wrap;
+  }
+  
+  .fraction-numerator,
+  .fraction-denominator {
+    width: 70px !important;
+  }
+  
+  .tool-calculate-btn {
+    width: 100%;
+    margin-top: 8px;
+  }
 }

@@ -6,7 +6,9 @@ import { MathStepsEngine } from '../core/mathsteps-engine.js';
 import { ExpressionDisplay } from './components/ExpressionDisplay.js';
 import { CommandPanel } from './components/CommandPanel.js';
 import { HistoryPanel } from './components/HistoryPanel.js';
-import { DescriptionPanel } from './components/DescriptionPanel.js';
+import { UtilityMenu, type UtilityType } from './components/UtilityMenu.js';
+import { FactorizationTool } from './components/FactorizationTool.js';
+import { FractionConverterTool } from './components/FractionConverterTool.js';
 import type { FrameSelection, MathStepsOperation } from '../types/index.js';
 
 export class ExpressionEditorApp {
@@ -14,7 +16,11 @@ export class ExpressionEditorApp {
   private expressionDisplay: ExpressionDisplay;
   private commandPanel: CommandPanel;
   private historyPanel: HistoryPanel;
-  private descriptionPanel: DescriptionPanel;
+  private utilityMenu: UtilityMenu;
+  
+  // Плавающие панели утилит
+  private factorizationTool: FactorizationTool | null = null;
+  private fractionTool: FractionConverterTool | null = null;
   
   // DOM элементы
   private expressionInput: HTMLInputElement;
@@ -43,7 +49,9 @@ export class ExpressionEditorApp {
       onHistoryClick: (index) => this.handleHistoryClick(index)
     });
     
-    this.descriptionPanel = new DescriptionPanel('descriptionPanel');
+    this.utilityMenu = new UtilityMenu('utilityMenuContainer', {
+      onSelect: (utility) => this.handleUtilitySelect(utility)
+    });
     
     this.mathStepsEngine = new MathStepsEngine();
 
@@ -162,7 +170,6 @@ export class ExpressionEditorApp {
     );
     this.commandPanel.clear();
     this.historyPanel.clear();
-    this.descriptionPanel.clear();
     this.hideError();
     this.currentExpression = '';
   }
@@ -177,7 +184,7 @@ export class ExpressionEditorApp {
     }
 
     const operations = this.mathStepsEngine.listOps(this.currentExpression, selection.path);
-    this.commandPanel.showCommands(selection, operations);
+    this.commandPanel.showCommands(selection, operations, this.currentExpression);
   }
 
   private debugLog(...args: unknown[]): void {
@@ -204,7 +211,6 @@ export class ExpressionEditorApp {
       const normalizedNode = this.mathStepsEngine.parse(newExpr);
       this.currentExpression = newExpr;
 
-      this.descriptionPanel.showRule(operation);
       this.historyPanel.addState(newExpr, operation.name, normalizedNode, assumptions);
 
       this.expressionInput.value = newExpr;
@@ -214,7 +220,7 @@ export class ExpressionEditorApp {
       const selection = this.expressionDisplay.selectFrameByPath(operation.selectionPath);
       if (selection) {
         const operations = this.mathStepsEngine.listOps(this.currentExpression, selection.path);
-        this.commandPanel.showCommands(selection, operations);
+        this.commandPanel.showCommands(selection, operations, this.currentExpression);
       } else {
         this.commandPanel.clear();
       }
@@ -235,6 +241,48 @@ export class ExpressionEditorApp {
     this.currentExpression = state.expression;
     
     this.expressionDisplay.render(state.expression, state.node);
+  }
+
+  /**
+   * Обработчик выбора утилиты из меню
+   */
+  private handleUtilitySelect(utility: UtilityType): void {
+    // Закрываем другие панели
+    this.closeAllUtilityPanels();
+    
+    const triggerButton = this.utilityMenu.getButton();
+    
+    switch (utility) {
+      case 'factorization':
+        if (!this.factorizationTool) {
+          this.factorizationTool = new FactorizationTool({
+            onClose: () => {}
+          });
+        }
+        this.factorizationTool.show(triggerButton);
+        break;
+        
+      case 'fraction':
+        if (!this.fractionTool) {
+          this.fractionTool = new FractionConverterTool({
+            onClose: () => {}
+          });
+        }
+        this.fractionTool.show(triggerButton);
+        break;
+    }
+  }
+
+  /**
+   * Закрывает все открытые панели утилит
+   */
+  private closeAllUtilityPanels(): void {
+    if (this.factorizationTool?.getIsVisible()) {
+      this.factorizationTool.hide();
+    }
+    if (this.fractionTool?.getIsVisible()) {
+      this.fractionTool.hide();
+    }
   }
 
   /**

@@ -11,6 +11,7 @@ export class CommandPanel {
   private container: HTMLElement;
   private config: CommandPanelConfig;
   private currentSelection: FrameSelection | null = null;
+  private currentExpression: string = '';
 
   constructor(containerId: string, config: CommandPanelConfig = {}) {
     const element = document.getElementById(containerId);
@@ -23,9 +24,13 @@ export class CommandPanel {
 
   /**
    * Показывает доступные команды для выбранного узла
+   * @param selection - информация о выбранном подвыражении
+   * @param operations - список доступных операций
+   * @param currentExpression - полное текущее выражение (для подсветки изменений)
    */
-  showCommands(selection: FrameSelection, operations: MathStepsOperation[]): void {
+  showCommands(selection: FrameSelection, operations: MathStepsOperation[], currentExpression: string = ''): void {
     this.currentSelection = selection;
+    this.currentExpression = currentExpression;
     this.container.innerHTML = '';
     
     // Показываем выбранное выражение
@@ -65,19 +70,15 @@ export class CommandPanel {
           item.dataset.changeType = changeType;
         }
         
-        const name = document.createElement('div');
-        name.className = 'command-name';
-        name.textContent = operation.name;
-        
-        const preview = document.createElement('div');
-        preview.className = 'command-preview';
-        preview.textContent = operation.preview;
-
         const description = document.createElement('div');
         description.className = 'command-description';
         description.textContent = operation.description;
 
-        item.appendChild(name);
+        const preview = document.createElement('div');
+        preview.className = 'command-preview';
+        // Подсветка изменений: сравниваем полное выражение с результатом преобразования
+        preview.innerHTML = this.highlightChanges(this.currentExpression || selection.text, operation.preview);
+
         item.appendChild(description);
         item.appendChild(preview);
 
@@ -155,5 +156,55 @@ export class CommandPanel {
       return parts[1] || '';
     }
     return '';
+  }
+
+  /**
+   * Подсвечивает изменившуюся часть в превью
+   * Сравнивает исходное выражение с результатом и оборачивает отличия в <mark>
+   */
+  private highlightChanges(original: string, result: string): string {
+    // Экранируем HTML
+    const escapeHtml = (str: string): string => {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    };
+
+    const origEsc = escapeHtml(original);
+    const resEsc = escapeHtml(result);
+
+    // Если строки одинаковые - просто возвращаем
+    if (origEsc === resEsc) {
+      return resEsc;
+    }
+
+    // Находим общий префикс
+    let prefixLen = 0;
+    const minLen = Math.min(origEsc.length, resEsc.length);
+    while (prefixLen < minLen && origEsc[prefixLen] === resEsc[prefixLen]) {
+      prefixLen++;
+    }
+
+    // Находим общий суффикс (не заходя за префикс)
+    let suffixLen = 0;
+    while (
+      suffixLen < minLen - prefixLen &&
+      origEsc[origEsc.length - 1 - suffixLen] === resEsc[resEsc.length - 1 - suffixLen]
+    ) {
+      suffixLen++;
+    }
+
+    // Разбиваем результат на части
+    const prefix = resEsc.slice(0, prefixLen);
+    const changed = resEsc.slice(prefixLen, resEsc.length - suffixLen || undefined);
+    const suffix = suffixLen > 0 ? resEsc.slice(-suffixLen) : '';
+
+    // Если изменённая часть пустая - всё удалено, подсветим место
+    if (changed === '') {
+      return `${prefix}<mark class="preview-deleted">∅</mark>${suffix}`;
+    }
+
+    return `${prefix}<mark class="preview-changed">${changed}</mark>${suffix}`;
   }
 }

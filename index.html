@@ -9,7 +9,10 @@
 </head>
 <body>
   <div class="app-header">
-    <h1>🧮 Преобразователь выражений</h1>
+    <div class="app-header-content">
+      <h1>🧮 Преобразователь выражений</h1>
+      <div id="utilityMenuContainer" class="utility-menu"></div>
+    </div>
   </div>
 
   <div class="app-layout">
@@ -62,7 +65,7 @@
       </div>
     </div>
 
-    <!-- Правая панель: История + Описание -->
+    <!-- Правая панель: История -->
     <div class="right-panel">
       <div class="history-section collapsible-panel">
         <div class="panel-header">
@@ -79,24 +82,6 @@
         </div>
         <div id="historyPanel" class="panel-content">
           <p class="placeholder">История преобразований появится здесь</p>
-        </div>
-      </div>
-
-      <div class="description-section collapsible-panel">
-        <div class="panel-header">
-          <h3>📖 Описание правила</h3>
-          <button
-            type="button"
-            class="panel-toggle"
-            data-panel-toggle="descriptionPanel"
-            aria-expanded="true"
-            aria-controls="descriptionPanel"
-          >
-            Скрыть
-          </button>
-        </div>
-        <div id="descriptionPanel" class="description-content panel-content">
-          <p class="placeholder">Выберите преобразование для просмотра описания</p>
         </div>
       </div>
     </div>

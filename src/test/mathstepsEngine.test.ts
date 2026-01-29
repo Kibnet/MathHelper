@@ -266,4 +266,36 @@ describe('MathStepsEngine', () => {
     // Должны быть операции (хотя бы custom: wrap, +0, *1)
     expect(ops.length).toBeGreaterThan(0);
   });
+
+  it('должен корректно применять "Разделить на 1" к выражениям с низким приоритетом', () => {
+    // Баг: "Разделить на 1" для выражения "1 + 0" давало "1 + 0/1" вместо "(1 + 0)/1"
+    // Причина: функция divideByOne не оборачивала в скобки выражения с операторами + или -
+    const engine = new MathStepsEngine();
+    
+    // Тест 1: простое сложение
+    const ops1 = engine.listOps('1 + 0', []);
+    const divideByOne1 = ops1.find(op => op.id.includes('divide_by_one'));
+    expect(divideByOne1).toBeDefined();
+    // Превью должно быть "(1 + 0) / 1", а не "1 + 0 / 1"
+    expect(divideByOne1!.preview.replace(/\s+/g, '')).toBe('(1+0)/1');
+    
+    // Тест 2: простое вычитание
+    const ops2 = engine.listOps('a - b', []);
+    const divideByOne2 = ops2.find(op => op.id.includes('divide_by_one'));
+    expect(divideByOne2).toBeDefined();
+    expect(divideByOne2!.preview.replace(/\s+/g, '')).toBe('(a-b)/1');
+    
+    // Тест 3: умножение не требует скобок (более высокий приоритет)
+    const ops3 = engine.listOps('a * b', []);
+    const divideByOne3 = ops3.find(op => op.id.includes('divide_by_one'));
+    expect(divideByOne3).toBeDefined();
+    // Умножение имеет тот же приоритет что и деление - скобки не нужны
+    expect(divideByOne3!.preview.replace(/\s+/g, '')).toBe('a*b/1');
+    
+    // Тест 4: одиночная переменная не требует скобок
+    const ops4 = engine.listOps('x', []);
+    const divideByOne4 = ops4.find(op => op.id.includes('divide_by_one'));
+    expect(divideByOne4).toBeDefined();
+    expect(divideByOne4!.preview.replace(/\s+/g, '')).toBe('x/1');
+  });
 });
