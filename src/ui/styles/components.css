@@ -977,7 +977,18 @@
     width: 70px !important;
   }
   
-  .tool-calculate-btn {
+  /* Кнопка под полем ввода для факторизации и НОК */
+  .tool-input-row {
+    flex-wrap: wrap;
+  }
+  
+  .tool-input-row input[type="text"] {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+  
+  .tool-input-row .tool-calculate-btn,
+  .fraction-input-row .tool-calculate-btn {
     width: 100%;
     margin-top: 8px;
   }
